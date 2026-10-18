@@ -6,37 +6,87 @@ using TMPro;
 
 public class SettingsMenu : MonoBehaviour
 {
-    [Header("Audio Settings")]
+    [Header("BGM Volume Settings")]
     [SerializeField] private AudioSource bgmAudioSource;
     [SerializeField] private Slider bgmSlider;
     [SerializeField] private TextMeshProUGUI volumePercentText;
 
-    [Header("Resolution Settings")]
-    [SerializeField] private Button normalResButton;
-    [SerializeField] private Button lowResButton;
-    [SerializeField] private TextMeshProUGUI normalResText;
-    [SerializeField] private TextMeshProUGUI lowResText;
+    [Header("Sound Volume Settings")]
+    [SerializeField] private AudioSource soundAudioSource;
+    [SerializeField] private Slider soundSlider;
+    [SerializeField] private TextMeshProUGUI soundPercentText;
+    [SerializeField] private Button soundMinusButton;
+    [SerializeField] private Button soundPlusButton;
+    [SerializeField] private Button soundMuteButton;
+    [SerializeField] private Button sound50Button;
+    [SerializeField] private Button sound100Button;
+    [SerializeField] private AudioClip previewClip;
 
     [Header("UI Panels")]
     [SerializeField] private GameObject settingsPanel;
     [SerializeField] private GameObject mainMenuPanel;
 
-    private const string BGM_PREF_KEY = "BGM_Volume";
-    private const string RES_PREF_KEY = "Game_Resolution_Mode"; // 0 = Normal, 1 = Low
+    [Header("Transition Settings")]
+    [SerializeField] private CanvasGroup settingsCanvasGroup;
+    [SerializeField] private CanvasGroup mainMenuCanvasGroup;
+    [SerializeField] private float transitionDuration = 0.28f;
 
-    // Button colors for selected vs unselected resolution
-    private readonly Color activeBtnColor = new Color(0.2f, 0.6f, 0.95f, 1f);
-    private readonly Color inactiveBtnColor = new Color(0.12f, 0.18f, 0.28f, 0.85f);
-    private readonly Color activeTextColor = Color.white;
-    private readonly Color inactiveTextColor = new Color(0.7f, 0.75f, 0.85f, 0.8f);
+    private Coroutine transitionCoroutine;
+
+    private const string BGM_PREF_KEY = "BGM_Volume";
+    private const string SFX_PREF_KEY = "SFX_Volume";
+
+    public static float GlobalSoundVolume { get; private set; } = 0.8f;
 
     private void Awake()
     {
-        InitializeAudio();
-        InitializeResolution();
+        InitializeBgmAudio();
+        InitializeSoundAudio();
+        EnsureCanvasGroups();
     }
 
-    private void InitializeAudio()
+    private void EnsureCanvasGroups()
+    {
+        if (settingsCanvasGroup == null)
+        {
+            GameObject target = settingsPanel != null ? settingsPanel : gameObject;
+            settingsCanvasGroup = target.GetComponent<CanvasGroup>();
+            if (settingsCanvasGroup == null) settingsCanvasGroup = target.AddComponent<CanvasGroup>();
+        }
+
+        if (mainMenuCanvasGroup == null && mainMenuPanel != null)
+        {
+            mainMenuCanvasGroup = mainMenuPanel.GetComponent<CanvasGroup>();
+            if (mainMenuCanvasGroup == null) mainMenuCanvasGroup = mainMenuPanel.AddComponent<CanvasGroup>();
+        }
+    }
+
+    private void Update()
+    {
+        if (settingsPanel != null && settingsPanel.activeInHierarchy && settingsCanvasGroup != null && settingsCanvasGroup.alpha > 0.5f)
+        {
+            bool escapePressed = false;
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                escapePressed = true;
+            }
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                escapePressed = true;
+            }
+#endif
+            if (escapePressed)
+            {
+                CloseSettings();
+            }
+        }
+    }
+
+
+
+    private void InitializeBgmAudio()
     {
         if (bgmAudioSource == null)
         {
@@ -64,98 +114,168 @@ public class SettingsMenu : MonoBehaviour
             bgmSlider.onValueChanged.AddListener(SetBGMVolume);
         }
 
-        UpdatePercentText(savedVolume);
+        UpdateBgmPercentText(savedVolume);
     }
 
-    private void InitializeResolution()
+    private void InitializeSoundAudio()
     {
-        // 0 = Normal, 1 = Low
-        int savedMode = PlayerPrefs.GetInt(RES_PREF_KEY, 0);
-
-        if (normalResButton != null)
+        if (soundAudioSource == null)
         {
-            normalResButton.onClick.RemoveAllListeners();
-            normalResButton.onClick.AddListener(() => SetResolutionMode(0));
+            soundAudioSource = GetComponent<AudioSource>();
+            if (soundAudioSource == null)
+            {
+                soundAudioSource = gameObject.AddComponent<AudioSource>();
+                soundAudioSource.playOnAwake = false;
+            }
         }
 
-        if (lowResButton != null)
+        float savedSoundVol = PlayerPrefs.GetFloat(SFX_PREF_KEY, 0.8f);
+        GlobalSoundVolume = savedSoundVol;
+
+        if (soundAudioSource != null)
         {
-            lowResButton.onClick.RemoveAllListeners();
-            lowResButton.onClick.AddListener(() => SetResolutionMode(1));
+            soundAudioSource.volume = savedSoundVol;
         }
 
-        ApplyResolution(savedMode, false);
+        if (soundSlider != null)
+        {
+            soundSlider.minValue = 0f;
+            soundSlider.maxValue = 1f;
+            soundSlider.value = savedSoundVol;
+            soundSlider.onValueChanged.RemoveAllListeners();
+            soundSlider.onValueChanged.AddListener(SetSoundVolumeFromSlider);
+        }
+
+        if (soundMinusButton != null)
+        {
+            soundMinusButton.onClick.RemoveAllListeners();
+            soundMinusButton.onClick.AddListener(() => ChangeSoundVolumeBy(-0.1f));
+        }
+
+        if (soundPlusButton != null)
+        {
+            soundPlusButton.onClick.RemoveAllListeners();
+            soundPlusButton.onClick.AddListener(() => ChangeSoundVolumeBy(0.1f));
+        }
+
+        if (soundMuteButton != null)
+        {
+            soundMuteButton.onClick.RemoveAllListeners();
+            soundMuteButton.onClick.AddListener(MuteSound);
+        }
+
+        if (sound50Button != null)
+        {
+            sound50Button.onClick.RemoveAllListeners();
+            sound50Button.onClick.AddListener(SetSound50);
+        }
+
+        if (sound100Button != null)
+        {
+            sound100Button.onClick.RemoveAllListeners();
+            sound100Button.onClick.AddListener(SetSound100);
+        }
+
+        UpdateSoundPercentText(savedSoundVol);
     }
 
-    public void SetResolutionMode(int mode)
+    public void SetBGMVolume(float volume)
     {
-        ApplyResolution(mode, true);
-    }
-
-    public void SetNormalResolution()
-    {
-        SetResolutionMode(0);
-    }
-
-    public void SetLowResolution()
-    {
-        SetResolutionMode(1);
-    }
-
-    private void ApplyResolution(int mode, bool save)
-    {
-        bool isLow = (mode == 1);
-
-        int nativeWidth = Screen.currentResolution.width > 0 ? Screen.currentResolution.width : 1366;
-        int nativeHeight = Screen.currentResolution.height > 0 ? Screen.currentResolution.height : 768;
-
-        if (isLow)
+        volume = Mathf.Clamp01(volume);
+        if (bgmAudioSource != null)
         {
-            // Low Resolution: scaled down to ~67% (e.g. 720p or lower for performance)
-            int lowWidth = Mathf.Max(640, Mathf.RoundToInt(nativeWidth * 0.67f));
-            int lowHeight = Mathf.Max(480, Mathf.RoundToInt(nativeHeight * 0.67f));
-            Screen.SetResolution(lowWidth, lowHeight, Screen.fullScreenMode);
-            QualitySettings.resolutionScalingFixedDPIFactor = 0.67f;
-        }
-        else
-        {
-            // Normal Resolution: native display resolution
-            Screen.SetResolution(nativeWidth, nativeHeight, Screen.fullScreenMode);
-            QualitySettings.resolutionScalingFixedDPIFactor = 1.0f;
+            bgmAudioSource.volume = volume;
         }
 
-        // Update button visual states
-        UpdateResolutionButtonsUI(isLow);
+        PlayerPrefs.SetFloat(BGM_PREF_KEY, volume);
+        UpdateBgmPercentText(volume);
+    }
 
-        if (save)
+    public void SetSoundVolume(float volume, bool playPreview = true)
+    {
+        volume = Mathf.Clamp01(Mathf.Round(volume * 100f) / 100f);
+        GlobalSoundVolume = volume;
+        PlayerPrefs.SetFloat(SFX_PREF_KEY, volume);
+
+        if (soundSlider != null && !Mathf.Approximately(soundSlider.value, volume))
         {
-            PlayerPrefs.SetInt(RES_PREF_KEY, mode);
-            PlayerPrefs.Save();
+            soundSlider.SetValueWithoutNotify(volume);
+        }
+
+        if (soundAudioSource != null)
+        {
+            soundAudioSource.volume = volume;
+        }
+
+        UpdateSoundPercentText(volume);
+        ApplyVolumeToAllButtonSounds(volume);
+
+        if (playPreview)
+        {
+            PlayPreviewSound();
         }
     }
 
-    private void UpdateResolutionButtonsUI(bool isLow)
+    public void SetSoundVolumeFromSlider(float volume)
     {
-        if (normalResButton != null)
-        {
-            Image img = normalResButton.GetComponent<Image>();
-            if (img != null) img.color = !isLow ? activeBtnColor : inactiveBtnColor;
-        }
+        SetSoundVolume(volume, playPreview: false);
+    }
 
-        if (lowResButton != null)
-        {
-            Image img = lowResButton.GetComponent<Image>();
-            if (img != null) img.color = isLow ? activeBtnColor : inactiveBtnColor;
-        }
+    public void ChangeSoundVolumeBy(float delta)
+    {
+        float current = PlayerPrefs.GetFloat(SFX_PREF_KEY, 0.8f);
+        float newVol = Mathf.Clamp01(current + delta);
+        SetSoundVolume(newVol, playPreview: true);
+    }
 
-        if (normalResText != null)
-        {
-            normalResText.color = !isLow ? activeTextColor : inactiveTextColor;
-        }
+    public void MuteSound()
+    {
+        SetSoundVolume(0f, playPreview: false);
+    }
 
-        if (lowResText != null)
+    public void SetSound50()
+    {
+        SetSoundVolume(0.5f, playPreview: true);
+    }
+
+    public void SetSound100()
+    {
+        SetSoundVolume(1.0f, playPreview: true);
+    }
+
+    public void PlayPreviewSound()
+    {
+        if (previewClip != null && soundAudioSource != null && soundAudioSource.isActiveAndEnabled)
         {
-            lowResText.color = isLow ? activeTextColor : inactiveTextColor;
+            soundAudioSource.PlayOneShot(previewClip, GlobalSoundVolume);
+        }
+    }
+
+    private void ApplyVolumeToAllButtonSounds(float volume)
+    {
+        ButtonFunction[] allButtonFuncs = Object.FindObjectsByType<ButtonFunction>(FindObjectsInactive.Include);
+        foreach (var bf in allButtonFuncs)
+        {
+            if (bf != null && bf.mySound != null)
+            {
+                bf.mySound.volume = volume;
+            }
+        }
+    }
+
+    private void UpdateBgmPercentText(float volume)
+    {
+        if (volumePercentText != null)
+        {
+            volumePercentText.text = Mathf.RoundToInt(volume * 100f) + "%";
+        }
+    }
+
+    private void UpdateSoundPercentText(float volume)
+    {
+        if (soundPercentText != null)
+        {
+            soundPercentText.text = Mathf.RoundToInt(volume * 100f) + "%";
         }
     }
 
@@ -165,55 +285,176 @@ public class SettingsMenu : MonoBehaviour
         {
             settingsPanel.SetActive(true);
         }
+        else
+        {
+            gameObject.SetActive(true);
+        }
+
+        EnsureCanvasGroups();
+
+        if (settingsCanvasGroup != null)
+        {
+            settingsCanvasGroup.alpha = 0f;
+            settingsCanvasGroup.interactable = false;
+            settingsCanvasGroup.blocksRaycasts = false;
+        }
+
+        // Refresh BGM UI
+        float currentBgm = PlayerPrefs.GetFloat(BGM_PREF_KEY, bgmAudioSource != null ? bgmAudioSource.volume : 0.8f);
+        if (bgmSlider != null)
+        {
+            bgmSlider.SetValueWithoutNotify(currentBgm);
+        }
+        UpdateBgmPercentText(currentBgm);
+
+        // Refresh Sound UI
+        float currentSound = PlayerPrefs.GetFloat(SFX_PREF_KEY, 0.8f);
+        GlobalSoundVolume = currentSound;
+        if (soundSlider != null)
+        {
+            soundSlider.SetValueWithoutNotify(currentSound);
+        }
+        UpdateSoundPercentText(currentSound);
+
+        if (transitionCoroutine != null)
+        {
+            StopCoroutine(transitionCoroutine);
+        }
+
+        transitionCoroutine = StartCoroutine(TransitionToSettings());
+    }
+
+    public void CloseSettings()
+    {
+        EnsureCanvasGroups();
+        PlayerPrefs.Save();
+
+        if (transitionCoroutine != null)
+        {
+            StopCoroutine(transitionCoroutine);
+        }
+
+        transitionCoroutine = StartCoroutine(TransitionToMainMenu());
+    }
+
+    private IEnumerator TransitionToSettings()
+    {
+        if (mainMenuCanvasGroup != null)
+        {
+            mainMenuCanvasGroup.interactable = false;
+            mainMenuCanvasGroup.blocksRaycasts = false;
+        }
+
+        if (settingsCanvasGroup != null)
+        {
+            settingsCanvasGroup.alpha = 0f;
+            settingsCanvasGroup.interactable = false;
+            settingsCanvasGroup.blocksRaycasts = false;
+        }
+
+        float elapsed = 0f;
+        float startMenuAlpha = (mainMenuCanvasGroup != null) ? mainMenuCanvasGroup.alpha : 1f;
+
+        while (elapsed < transitionDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / transitionDuration);
+            float smoothT = t * t * (3f - 2f * t);
+
+            if (mainMenuCanvasGroup != null)
+            {
+                mainMenuCanvasGroup.alpha = Mathf.Lerp(startMenuAlpha, 0f, smoothT);
+            }
+
+            if (settingsCanvasGroup != null)
+            {
+                settingsCanvasGroup.alpha = Mathf.Lerp(0f, 1f, smoothT);
+            }
+
+            yield return null;
+        }
+
+        if (mainMenuCanvasGroup != null)
+        {
+            mainMenuCanvasGroup.alpha = 0f;
+        }
 
         if (mainMenuPanel != null)
         {
             mainMenuPanel.SetActive(false);
         }
 
-        // Refresh slider to current volume
-        if (bgmSlider != null && bgmAudioSource != null)
+        if (settingsCanvasGroup != null)
         {
-            bgmSlider.value = bgmAudioSource.volume;
-            UpdatePercentText(bgmSlider.value);
+            settingsCanvasGroup.alpha = 1f;
+            settingsCanvasGroup.interactable = true;
+            settingsCanvasGroup.blocksRaycasts = true;
         }
 
-        // Refresh resolution buttons state
-        int savedMode = PlayerPrefs.GetInt(RES_PREF_KEY, 0);
-        UpdateResolutionButtonsUI(savedMode == 1);
+        transitionCoroutine = null;
     }
 
-    public void CloseSettings()
+    private IEnumerator TransitionToMainMenu()
     {
-        if (settingsPanel != null)
+        if (settingsCanvasGroup != null)
         {
-            settingsPanel.SetActive(false);
+            settingsCanvasGroup.interactable = false;
+            settingsCanvasGroup.blocksRaycasts = false;
         }
 
         if (mainMenuPanel != null)
         {
             mainMenuPanel.SetActive(true);
+            if (mainMenuCanvasGroup != null)
+            {
+                mainMenuCanvasGroup.alpha = 0f;
+                mainMenuCanvasGroup.interactable = false;
+                mainMenuCanvasGroup.blocksRaycasts = false;
+            }
         }
 
-        PlayerPrefs.Save();
-    }
+        float elapsed = 0f;
+        float startSettingsAlpha = (settingsCanvasGroup != null) ? settingsCanvasGroup.alpha : 1f;
 
-    public void SetBGMVolume(float volume)
-    {
-        if (bgmAudioSource != null)
+        while (elapsed < transitionDuration)
         {
-            bgmAudioSource.volume = volume;
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / transitionDuration);
+            float smoothT = t * t * (3f - 2f * t);
+
+            if (settingsCanvasGroup != null)
+            {
+                settingsCanvasGroup.alpha = Mathf.Lerp(startSettingsAlpha, 0f, smoothT);
+            }
+
+            if (mainMenuCanvasGroup != null)
+            {
+                mainMenuCanvasGroup.alpha = Mathf.Lerp(0f, 1f, smoothT);
+            }
+
+            yield return null;
         }
 
-        PlayerPrefs.SetFloat(BGM_PREF_KEY, volume);
-        UpdatePercentText(volume);
-    }
-
-    private void UpdatePercentText(float volume)
-    {
-        if (volumePercentText != null)
+        if (settingsCanvasGroup != null)
         {
-            volumePercentText.text = Mathf.RoundToInt(volume * 100f) + "%";
+            settingsCanvasGroup.alpha = 0f;
+            settingsCanvasGroup.interactable = false;
+            settingsCanvasGroup.blocksRaycasts = false;
         }
+
+        if (mainMenuCanvasGroup != null)
+        {
+            mainMenuCanvasGroup.alpha = 1f;
+            mainMenuCanvasGroup.interactable = true;
+            mainMenuCanvasGroup.blocksRaycasts = true;
+        }
+
+        if (settingsPanel != null)
+        {
+            settingsPanel.SetActive(false);
+        }
+
+        transitionCoroutine = null;
     }
 }
+
