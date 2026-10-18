@@ -22,6 +22,11 @@ public class SettingsMenu : MonoBehaviour
     [SerializeField] private Button sound100Button;
     [SerializeField] private AudioClip previewClip;
 
+    [Header("In-Game Action Buttons (Optional)")]
+    [SerializeField] private Button saveProgressButton;
+    [SerializeField] private Button returnToMenuButton;
+    [SerializeField] private SaveArchiveMenu saveArchiveMenu;
+
     [Header("UI Panels")]
     [SerializeField] private GameObject settingsPanel;
     [SerializeField] private GameObject mainMenuPanel;
@@ -29,7 +34,7 @@ public class SettingsMenu : MonoBehaviour
     [Header("Transition Settings")]
     [SerializeField] private CanvasGroup settingsCanvasGroup;
     [SerializeField] private CanvasGroup mainMenuCanvasGroup;
-    [SerializeField] private float transitionDuration = 0.28f;
+    [SerializeField] private float transitionDuration = 0.25f;
 
     private Coroutine transitionCoroutine;
 
@@ -42,7 +47,23 @@ public class SettingsMenu : MonoBehaviour
     {
         InitializeBgmAudio();
         InitializeSoundAudio();
+        InitializeActionButtons();
         EnsureCanvasGroups();
+    }
+
+    private void InitializeActionButtons()
+    {
+        if (saveProgressButton != null)
+        {
+            saveProgressButton.onClick.RemoveListener(OnSaveProgressClicked);
+            saveProgressButton.onClick.AddListener(OnSaveProgressClicked);
+        }
+
+        if (returnToMenuButton != null)
+        {
+            returnToMenuButton.onClick.RemoveListener(OnReturnToMenuClicked);
+            returnToMenuButton.onClick.AddListener(OnReturnToMenuClicked);
+        }
     }
 
     private void EnsureCanvasGroups()
@@ -65,6 +86,12 @@ public class SettingsMenu : MonoBehaviour
     {
         if (settingsPanel != null && settingsPanel.activeInHierarchy && settingsCanvasGroup != null && settingsCanvasGroup.alpha > 0.5f)
         {
+            // Do not close settings on Escape if SaveArchivePanel is currently open on top
+            if (saveArchiveMenu != null && saveArchiveMenu.IsOpen)
+            {
+                return;
+            }
+
             bool escapePressed = false;
 #if ENABLE_INPUT_SYSTEM
             if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
@@ -83,8 +110,6 @@ public class SettingsMenu : MonoBehaviour
             }
         }
     }
-
-
 
     private void InitializeBgmAudio()
     {
@@ -182,6 +207,12 @@ public class SettingsMenu : MonoBehaviour
     public void SetBGMVolume(float volume)
     {
         volume = Mathf.Clamp01(volume);
+        if (bgmAudioSource == null)
+        {
+            GameObject bgmObj = GameObject.Find("BGM");
+            if (bgmObj != null) bgmAudioSource = bgmObj.GetComponent<AudioSource>();
+        }
+
         if (bgmAudioSource != null)
         {
             bgmAudioSource.volume = volume;
@@ -279,6 +310,19 @@ public class SettingsMenu : MonoBehaviour
         }
     }
 
+    public void ToggleSettings()
+    {
+        GameObject target = settingsPanel != null ? settingsPanel : gameObject;
+        if (target.activeInHierarchy && (settingsCanvasGroup == null || settingsCanvasGroup.alpha > 0.5f))
+        {
+            CloseSettings();
+        }
+        else
+        {
+            OpenSettings();
+        }
+    }
+
     public void OpenSettings()
     {
         if (settingsPanel != null)
@@ -291,6 +335,7 @@ public class SettingsMenu : MonoBehaviour
         }
 
         EnsureCanvasGroups();
+        InitializeActionButtons();
 
         if (settingsCanvasGroup != null)
         {
@@ -335,6 +380,27 @@ public class SettingsMenu : MonoBehaviour
         }
 
         transitionCoroutine = StartCoroutine(TransitionToMainMenu());
+    }
+
+    public void OnSaveProgressClicked()
+    {
+        PlayerPrefs.Save();
+        if (saveArchiveMenu == null)
+        {
+            saveArchiveMenu = Object.FindAnyObjectByType<SaveArchiveMenu>(FindObjectsInactive.Include);
+        }
+
+        if (saveArchiveMenu != null)
+        {
+            saveArchiveMenu.OpenArchiveInSaveMode();
+        }
+    }
+
+    public void OnReturnToMenuClicked()
+    {
+        PlayerPrefs.Save();
+        PlayPreviewSound();
+        SceneTransitionManager.LoadScene("MenuScreen", 0.5f);
     }
 
     private IEnumerator TransitionToSettings()
@@ -457,4 +523,3 @@ public class SettingsMenu : MonoBehaviour
         transitionCoroutine = null;
     }
 }
-

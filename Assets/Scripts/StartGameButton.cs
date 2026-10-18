@@ -4,8 +4,8 @@ using UnityEngine.UI;
 [RequireComponent(typeof(Button))]
 public class StartGameButton : MonoBehaviour
 {
-    [SerializeField] private string targetScene = "SchoolScene";
-    [SerializeField] private float fadeDuration = 0.6f;
+    [SerializeField] private string targetScene = "OpeningScene";
+    [SerializeField] private float fadeDuration = 0.8f;
     [SerializeField] private AudioClip startSound;
 
     private Button button;
@@ -16,6 +16,11 @@ public class StartGameButton : MonoBehaviour
         button = GetComponent<Button>();
         audioSource = GetComponent<AudioSource>();
 
+        if (string.IsNullOrEmpty(targetScene) || targetScene == "SchoolScene")
+        {
+            targetScene = "OpeningScene";
+        }
+
         if (button != null)
         {
             button.onClick.RemoveListener(OnStartClicked);
@@ -25,6 +30,11 @@ public class StartGameButton : MonoBehaviour
 
     public void OnStartClicked()
     {
+        if (string.IsNullOrEmpty(targetScene) || targetScene == "SchoolScene")
+        {
+            targetScene = "OpeningScene";
+        }
+
         if (startSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(startSound, SettingsMenu.GlobalSoundVolume);
@@ -35,7 +45,7 @@ public class StartGameButton : MonoBehaviour
             if (bf != null) bf.ClickSound();
         }
 
-        Debug.Log($"<color=pink>[StartGameButton] Starting transition to {targetScene}...</color>");
+        Debug.Log($"<color=cyan>[StartGameButton] Redirecting from MenuScreen to {targetScene}...</color>");
         SceneTransitionManager.LoadScene(targetScene, fadeDuration);
     }
 }

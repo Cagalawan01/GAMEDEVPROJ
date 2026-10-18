@@ -7,6 +7,12 @@ public class SceneTransitionManager : MonoBehaviour
 {
     public static SceneTransitionManager Instance { get; private set; }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        Instance = null;
+    }
+
     [Header("Transition Configuration")]
     [SerializeField] private float fadeDuration = 0.5f;
     [SerializeField] private Color fadeColor = Color.black;

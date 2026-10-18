@@ -17,6 +17,7 @@ public class SaveArchiveMenu : MonoBehaviour
     [SerializeField] private float transitionDuration = 0.28f;
 
     [Header("Header & Pagination")]
+    [SerializeField] private TextMeshProUGUI archiveTitleText;
     [SerializeField] private TextMeshProUGUI pageSubtitleText;
     [SerializeField] private Button page1Button;
     [SerializeField] private Button page2Button;
@@ -26,6 +27,9 @@ public class SaveArchiveMenu : MonoBehaviour
     [SerializeField] private Button nextPageButton;
     [SerializeField] private Button backButton;
     [SerializeField] private Button loadMemoryTabButton;
+    [SerializeField] private bool isSaveMode = false;
+
+    public bool IsOpen => archivePanel != null && archivePanel.activeInHierarchy && (archiveCanvasGroup == null || archiveCanvasGroup.alpha > 0.1f);
 
     [Header("Save Cards (6 per page)")]
     [SerializeField] private Sprite cardFrameSprite;
@@ -200,7 +204,19 @@ public class SaveArchiveMenu : MonoBehaviour
         }
     }
 
+    public void OpenArchiveInSaveMode()
+    {
+        isSaveMode = true;
+        OpenArchiveInternal();
+    }
+
     public void OpenArchive()
+    {
+        isSaveMode = false;
+        OpenArchiveInternal();
+    }
+
+    private void OpenArchiveInternal()
     {
         if (archivePanel != null)
         {
@@ -212,6 +228,11 @@ public class SaveArchiveMenu : MonoBehaviour
         }
 
         InitIfNeeded();
+
+        if (archiveTitleText != null)
+        {
+            archiveTitleText.text = isSaveMode ? "\u2726  Save Memory  \u2726" : "\u2726  Load Memory  \u2726";
+        }
 
         if (archiveCanvasGroup != null)
         {
@@ -527,6 +548,35 @@ public class SaveArchiveMenu : MonoBehaviour
     public void OnCardClicked(int slotIndex)
     {
         int globalSlot = (currentPage - 1) * 6 + slotIndex;
+
+        if (isSaveMode)
+        {
+            SchoolPrologueController prologue = Object.FindAnyObjectByType<SchoolPrologueController>();
+            int lineIdx = prologue != null ? prologue.CurrentLineIndex : 0;
+            string chapterName = prologue != null ? prologue.CurrentSaveChapterName : "First Day of School";
+            string slotPrefix = (globalSlot + 1).ToString("D2");
+            string saveTitle = $"{slotPrefix}. {chapterName}";
+            string timestamp = System.DateTime.Now.ToString("yyyy.MM.dd  HH:mm");
+            string activeScene = SceneManager.GetActiveScene().name;
+
+            PlayerPrefs.SetInt($"SaveSlot_{globalSlot}_Exists", 1);
+            PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Title", saveTitle);
+            PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Time", timestamp);
+            PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Scene", activeScene);
+            PlayerPrefs.SetInt($"SaveSlot_{globalSlot}_LineIndex", lineIdx);
+
+            PlayerPrefs.SetInt(PREF_SELECTED_SLOT, globalSlot);
+            PlayerPrefs.SetString(PREF_CHAPTER_TITLE, saveTitle);
+            PlayerPrefs.SetString(PREF_TIMESTAMP, timestamp);
+            PlayerPrefs.Save();
+
+            SetPage(currentPage);
+            PlaySound(clickSound);
+            ShowNotification($"Saved Progress to Slot {globalSlot + 1} \u2014 {saveTitle}");
+            Debug.Log($"<color=cyan>[SaveArchive] Saved progress to Slot {globalSlot + 1}: {saveTitle} ({timestamp})</color>");
+            return;
+        }
+
         bool hasSave = HasSaveData(globalSlot);
 
         if (hasSave)
@@ -535,17 +585,26 @@ public class SaveArchiveMenu : MonoBehaviour
                 (currentPage == 1 && slotIndex < page1Titles.Length) ? page1Titles[slotIndex] : $"Chapter {globalSlot + 1}");
             string time = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_Time",
                 (currentPage == 1 && slotIndex < page1Times.Length) ? page1Times[slotIndex] : "");
+            string targetScene = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_Scene", "SchoolScene");
+            int savedLineIdx = PlayerPrefs.GetInt($"SaveSlot_{globalSlot}_LineIndex", 0);
 
             // Save selected progress to PlayerPrefs
             PlayerPrefs.SetInt(PREF_SELECTED_SLOT, globalSlot);
             PlayerPrefs.SetString(PREF_CHAPTER_TITLE, title);
             PlayerPrefs.SetString(PREF_TIMESTAMP, time);
+            PlayerPrefs.SetInt("IsLoadingFromSave", 1);
+            PlayerPrefs.SetInt("LoadSavedLineIndex", savedLineIdx);
             PlayerPrefs.Save();
 
             Debug.Log($"<color=cyan>[SaveArchive] Continuing story from Slot {globalSlot + 1}: {title} ({time})</color>");
 
             PlaySound(clickSound);
             ShowNotification($"Continuing Story \u2014 {title}");
+
+            if (SceneManager.GetActiveScene().name != targetScene)
+            {
+                SceneTransitionManager.LoadScene(targetScene, 0.6f);
+            }
         }
         else
         {

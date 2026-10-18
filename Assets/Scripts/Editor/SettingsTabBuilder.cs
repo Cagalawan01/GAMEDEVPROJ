@@ -25,6 +25,11 @@ public static class SettingsTabBuilder
             return;
         }
 
+        if (EditorSceneManager.GetActiveScene().name != "MenuScreen")
+        {
+            return;
+        }
+
         Canvas canvas = Object.FindAnyObjectByType<Canvas>();
         if (canvas != null)
         {

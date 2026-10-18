@@ -28,6 +28,11 @@ public static class SaveArchiveBuilder
             return;
         }
 
+        if (EditorSceneManager.GetActiveScene().name != "MenuScreen")
+        {
+            return;
+        }
+
         Debug.Log("[SaveArchiveBuilder] Upgrading Save Archive UI with Main Menu styling...");
         BuildSaveArchive();
     }
@@ -35,6 +40,11 @@ public static class SaveArchiveBuilder
     [MenuItem("Tools/Setup Save Archive (Continue)")]
     public static void BuildSaveArchive()
     {
+        if (EditorSceneManager.GetActiveScene().name != "MenuScreen")
+        {
+            return;
+        }
+
         Canvas canvas = Object.FindAnyObjectByType<Canvas>();
         if (canvas == null)
         {
@@ -44,9 +54,10 @@ public static class SaveArchiveBuilder
 
         Undo.RegisterFullObjectHierarchyUndo(canvas.gameObject, "Setup Save Archive");
 
-        // 1. Locate Main Menu & Continue/Resume button
         Transform mainMenuTf = canvas.transform.Find("Main Menu");
         GameObject mainMenu = mainMenuTf != null ? mainMenuTf.gameObject : null;
+
+        SaveArchiveMenu archiveMenu = BuildSaveArchiveForCanvas(canvas, mainMenu, false);
 
         Transform resumeBtnTf = mainMenuTf != null ? mainMenuTf.Find("resumebutton") : null;
         if (resumeBtnTf == null)
@@ -54,6 +65,27 @@ public static class SaveArchiveBuilder
             GameObject found = GameObject.Find("resumebutton");
             if (found != null) resumeBtnTf = found.transform;
         }
+
+        if (resumeBtnTf != null && archiveMenu != null)
+        {
+            Button resumeBtn = resumeBtnTf.GetComponent<Button>();
+            if (resumeBtn != null)
+            {
+                UnityEventTools.RemovePersistentListener(resumeBtn.onClick, archiveMenu.OpenArchive);
+                UnityEventTools.AddPersistentListener(resumeBtn.onClick, archiveMenu.OpenArchive);
+                EditorUtility.SetDirty(resumeBtn);
+            }
+        }
+
+        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+
+        Debug.Log("<color=cyan>[SaveArchiveBuilder] Successfully upgraded Save Archive with large cards and Main Menu button styling!</color>");
+    }
+
+    public static SaveArchiveMenu BuildSaveArchiveForCanvas(Canvas canvas, GameObject mainMenu, bool saveMode = false)
+    {
+        if (canvas == null) return null;
 
         // 2. Load Fonts - Main Menu Font: BLKCHCRY SDF
         TMP_FontAsset menuFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Buttons/Fonts/BLKCHCRY SDF.asset");
@@ -123,10 +155,9 @@ public static class SaveArchiveBuilder
         }
 
         // Background on SaveArchivePanel:
-        // Uses the exact same background as Main Menu (live animated video with subtle dark glass tint for card contrast)
         Image panelImg = panelObj.GetComponent<Image>();
         panelImg.sprite = null;
-        panelImg.color = new Color(0.015f, 0.04f, 0.09f, 0.62f);
+        panelImg.color = saveMode ? new Color(0.015f, 0.04f, 0.09f, 0.85f) : new Color(0.015f, 0.04f, 0.09f, 0.62f);
 
         // AudioSource on Panel
         AudioSource panelAudio = panelObj.GetComponent<AudioSource>();
@@ -145,9 +176,12 @@ public static class SaveArchiveBuilder
         {
             mainMenuCg = mainMenu.GetComponent<CanvasGroup>();
             if (mainMenuCg == null) mainMenuCg = mainMenu.AddComponent<CanvasGroup>();
-            mainMenuCg.alpha = 1f;
-            mainMenuCg.interactable = true;
-            mainMenuCg.blocksRaycasts = true;
+            if (!saveMode)
+            {
+                mainMenuCg.alpha = 1f;
+                mainMenuCg.interactable = true;
+                mainMenuCg.blocksRaycasts = true;
+            }
         }
 
         // SaveArchiveMenu component
@@ -182,7 +216,7 @@ public static class SaveArchiveBuilder
         tRect.offsetMax = Vector2.zero;
 
         TextMeshProUGUI titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
-        titleTmp.text = "\u2726  Load Memory  \u2726";
+        titleTmp.text = saveMode ? "\u2726  Save Memory  \u2726" : "\u2726  Load Memory  \u2726";
         titleTmp.font = menuFont;
         titleTmp.fontSize = 58;
         titleTmp.fontStyle = FontStyles.Bold;
@@ -505,6 +539,7 @@ public static class SaveArchiveBuilder
         so.FindProperty("mainMenuPanel").objectReferenceValue = mainMenu;
         so.FindProperty("archiveCanvasGroup").objectReferenceValue = archiveCg;
         so.FindProperty("mainMenuCanvasGroup").objectReferenceValue = mainMenuCg;
+        so.FindProperty("archiveTitleText").objectReferenceValue = titleTmp;
         so.FindProperty("pageSubtitleText").objectReferenceValue = subTmp;
         so.FindProperty("page1Button").objectReferenceValue = p1Btn;
         so.FindProperty("page2Button").objectReferenceValue = p2Btn;
@@ -513,6 +548,7 @@ public static class SaveArchiveBuilder
         so.FindProperty("prevPageButton").objectReferenceValue = prevBtn;
         so.FindProperty("nextPageButton").objectReferenceValue = nextBtn;
         so.FindProperty("backButton").objectReferenceValue = backBtn;
+        so.FindProperty("isSaveMode").boolValue = saveMode;
         so.FindProperty("audioSource").objectReferenceValue = panelAudio;
         so.FindProperty("clickSound").objectReferenceValue = clickClip;
         so.FindProperty("hoverSound").objectReferenceValue = hoverClip;
@@ -545,27 +581,11 @@ public static class SaveArchiveBuilder
 
         so.ApplyModifiedProperties();
 
-        // 12. Wire resumebutton (Continue button) in Main Menu -> archiveMenu.OpenArchive
-        if (resumeBtnTf != null)
-        {
-            Button resumeBtn = resumeBtnTf.GetComponent<Button>();
-            if (resumeBtn != null)
-            {
-                UnityEventTools.RemovePersistentListener(resumeBtn.onClick, archiveMenu.OpenArchive);
-                UnityEventTools.AddPersistentListener(resumeBtn.onClick, archiveMenu.OpenArchive);
-                EditorUtility.SetDirty(resumeBtn);
-            }
-        }
-
-        // Hide Archive Panel by default so Main Menu is displayed first
+        // Hide Archive Panel by default so Main Menu / Scene is displayed first
         panelObj.SetActive(false);
 
-        // Mark Dirty & Save Scene
         EditorUtility.SetDirty(panelObj);
-        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-        EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
-
-        Debug.Log("<color=cyan>[SaveArchiveBuilder] Successfully upgraded Save Archive with large cards and Main Menu button styling!</color>");
+        return archiveMenu;
     }
 }
 #endif
