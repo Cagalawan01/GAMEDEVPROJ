@@ -136,6 +136,14 @@ public class SaveArchiveMenu : MonoBehaviour
         if (isInitialized) return;
         isInitialized = true;
 
+        foreach (Text t in GetComponentsInChildren<Text>(true))
+        {
+            if (t != null && (t.text == "Button" || t.gameObject.name.Contains("Text (Legacy)") || t.gameObject.name == "Text"))
+            {
+                Destroy(t.gameObject);
+            }
+        }
+
         if (cardFrameSprite == null)
         {
             cardFrameSprite = Resources.Load<Sprite>("ornate_card_frame");
@@ -559,11 +567,14 @@ public class SaveArchiveMenu : MonoBehaviour
             string timestamp = System.DateTime.Now.ToString("yyyy.MM.dd  HH:mm");
             string activeScene = SceneManager.GetActiveScene().name;
 
+            string playerName = PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Protagonist");
+
             PlayerPrefs.SetInt($"SaveSlot_{globalSlot}_Exists", 1);
             PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Title", saveTitle);
             PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Time", timestamp);
             PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Scene", activeScene);
             PlayerPrefs.SetInt($"SaveSlot_{globalSlot}_LineIndex", lineIdx);
+            PlayerPrefs.SetString($"SaveSlot_{globalSlot}_PlayerName", playerName);
 
             PlayerPrefs.SetInt(PREF_SELECTED_SLOT, globalSlot);
             PlayerPrefs.SetString(PREF_CHAPTER_TITLE, saveTitle);
@@ -587,11 +598,14 @@ public class SaveArchiveMenu : MonoBehaviour
                 (currentPage == 1 && slotIndex < page1Times.Length) ? page1Times[slotIndex] : "");
             string targetScene = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_Scene", "SchoolScene");
             int savedLineIdx = PlayerPrefs.GetInt($"SaveSlot_{globalSlot}_LineIndex", 0);
+            string savedPlayerName = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_PlayerName",
+                PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Protagonist"));
 
             // Save selected progress to PlayerPrefs
             PlayerPrefs.SetInt(PREF_SELECTED_SLOT, globalSlot);
             PlayerPrefs.SetString(PREF_CHAPTER_TITLE, title);
             PlayerPrefs.SetString(PREF_TIMESTAMP, time);
+            PlayerPrefs.SetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, savedPlayerName);
             PlayerPrefs.SetInt("IsLoadingFromSave", 1);
             PlayerPrefs.SetInt("LoadSavedLineIndex", savedLineIdx);
             PlayerPrefs.Save();

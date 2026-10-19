@@ -45,6 +45,13 @@ public class SettingsMenu : MonoBehaviour
 
     private void Awake()
     {
+        foreach (Text t in GetComponentsInChildren<Text>(true))
+        {
+            if (t != null && (t.text == "Button" || t.gameObject.name.Contains("Text (Legacy)") || t.gameObject.name == "Text"))
+            {
+                Destroy(t.gameObject);
+            }
+        }
         InitializeBgmAudio();
         InitializeSoundAudio();
         InitializeActionButtons();

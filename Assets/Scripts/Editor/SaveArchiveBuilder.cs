@@ -296,8 +296,10 @@ public static class SaveArchiveBuilder
                 cardRect.offsetMax = new Vector2(-8f, -6f);
                 cardRect.pivot = new Vector2(0.5f, 0.5f);
 
-                Transform defaultText = cardObj.transform.Find("Text");
-                if (defaultText != null) Object.DestroyImmediate(defaultText.gameObject);
+                foreach (Text legacyText in cardObj.GetComponentsInChildren<Text>(true))
+                {
+                    if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+                }
 
                 // Ornate card frame covering the entire box
                 Image cBgImg = cardObj.GetComponent<Image>();
@@ -403,8 +405,10 @@ public static class SaveArchiveBuilder
         Image backImg = backObj.GetComponent<Image>();
         backImg.color = new Color(0.12f, 0.24f, 0.42f, 0.85f);
 
-        Transform oldBackText = backObj.transform.Find("Text");
-        if (oldBackText != null) Object.DestroyImmediate(oldBackText.gameObject);
+        foreach (Text legacyText in backObj.GetComponentsInChildren<Text>(true))
+        {
+            if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+        }
 
         GameObject backTextObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         backTextObj.transform.SetParent(backObj.transform, false);
@@ -466,8 +470,10 @@ public static class SaveArchiveBuilder
             Image img = bObj.GetComponent<Image>();
             img.color = new Color(0.1f, 0.2f, 0.35f, 0.4f);
 
-            Transform oldT = bObj.transform.Find("Text");
-            if (oldT != null) Object.DestroyImmediate(oldT.gameObject);
+            foreach (Text legacyText in bObj.GetComponentsInChildren<Text>(true))
+            {
+                if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+            }
 
             GameObject to = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             to.transform.SetParent(bObj.transform, false);

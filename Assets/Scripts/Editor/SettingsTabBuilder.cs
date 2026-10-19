@@ -271,8 +271,10 @@ public static class SettingsTabBuilder
             Image bImg = btnObj.GetComponent<Image>();
             bImg.color = new Color(0.14f, 0.22f, 0.35f, 0.9f);
 
-            Transform oldText = btnObj.transform.Find("Text");
-            if (oldText != null) Object.DestroyImmediate(oldText.gameObject);
+            foreach (Text legacyText in btnObj.GetComponentsInChildren<Text>(true))
+            {
+                if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+            }
 
             GameObject textObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObj.transform.SetParent(btnObj.transform, false);
@@ -374,8 +376,10 @@ public static class SettingsTabBuilder
         Image backBtnImg = backBtnObj.GetComponent<Image>();
         backBtnImg.color = new Color(0.18f, 0.32f, 0.52f, 0.9f);
 
-        Transform defaultText = backBtnObj.transform.Find("Text");
-        if (defaultText != null) Object.DestroyImmediate(defaultText.gameObject);
+        foreach (Text legacyText in backBtnObj.GetComponentsInChildren<Text>(true))
+        {
+            if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+        }
 
         GameObject backTextObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         backTextObj.transform.SetParent(backBtnObj.transform, false);

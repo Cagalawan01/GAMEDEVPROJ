@@ -13,11 +13,17 @@ public static class SchoolSceneBuilder
 {
     private const string SCENE_PATH = "Assets/Scenes/SchoolScene.unity";
     private const string MENU_SCENE_PATH = "Assets/Scenes/MenuScreen.unity";
-    private const string SESSION_BUILD_KEY = "SchoolScene_Built_V5";
+    private const string SESSION_BUILD_KEY = "SchoolScene_Built_V12";
 
     static SchoolSceneBuilder()
     {
-        EditorApplication.delayCall += CheckAndBuild;
+        EditorApplication.update += RunOnce;
+    }
+
+    private static void RunOnce()
+    {
+        EditorApplication.update -= RunOnce;
+        CheckAndBuild();
     }
 
     public static void CheckAndBuild()
@@ -29,9 +35,9 @@ public static class SchoolSceneBuilder
         {
             SessionState.SetBool(SESSION_BUILD_KEY, true);
             BuildSchoolScene();
+            SetupStartButtonInMenu();
         }
-
-        if (EditorSceneManager.GetActiveScene().path == MENU_SCENE_PATH)
+        else if (EditorSceneManager.GetActiveScene().path == MENU_SCENE_PATH)
         {
             SetupStartButtonInMenu();
         }
@@ -92,13 +98,18 @@ public static class SchoolSceneBuilder
         Sprite dialogueBoxSprite = LoadOrImportSprite("Assets/Resources/vn_dialogue_box.png", "Assets/Art/vn_dialogue_box.png");
         Sprite speakerPlateSprite = LoadOrImportSprite("Assets/Resources/vn_speaker_plate.png", "Assets/Art/vn_speaker_plate.png");
         Sprite gearIconSprite = LoadOrImportSprite("Assets/Resources/settings_gear_icon.png", "Assets/Art/settings_gear_icon.png");
+        Sprite memorialSprite = LoadOrImportSprite("Assets/Resources/memorial_poster.png", "Assets/Art/memorial_poster.png");
+        Sprite haloSprite = LoadOrImportSprite("Assets/Resources/inspect_halo_glow.png");
 
+        TMP_FontAsset defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
         TMP_FontAsset menuFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Buttons/Fonts/BLKCHCRY SDF.asset");
-        if (menuFont == null) menuFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+        if (menuFont == null) menuFont = defaultFont;
+        if (defaultFont == null) defaultFont = menuFont;
 
         AudioClip clickClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Sound Effect/click.mp3");
         AudioClip hoverClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Sound Effect/hover.mp3");
-        AudioClip bgmClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/BGM/Menu.mp3");
+        AudioClip darkMelodyClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/BGM/darkmelody.mp3");
+        if (darkMelodyClip == null) darkMelodyClip = Resources.Load<AudioClip>("darkmelody");
 
         // Remember active scene to return to it
         string activeScenePath = EditorSceneManager.GetActiveScene().path;
@@ -123,15 +134,16 @@ public static class SchoolSceneBuilder
         esObj.AddComponent<StandaloneInputModule>();
 #endif
 
-        // 3. BGM AudioSource
+        // 2b. SchoolScene BGM (darkmelody.mp3 looped on SchoolScene only)
         GameObject bgmObj = new GameObject("BGM", typeof(AudioSource));
         AudioSource bgmSource = bgmObj.GetComponent<AudioSource>();
-        bgmSource.clip = bgmClip;
+        bgmSource.clip = darkMelodyClip;
         bgmSource.loop = true;
         bgmSource.playOnAwake = true;
+        bgmSource.spatialBlend = 0f;
         bgmSource.volume = PlayerPrefs.GetFloat("BGM_Volume", 0.8f);
 
-        // 4. Canvas
+        // 3. Canvas
         GameObject canvasObj = new GameObject("SchoolCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         Canvas canvas = canvasObj.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -141,7 +153,7 @@ public static class SchoolSceneBuilder
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
 
-        // 5. Background Image (Cherry Blossom School)
+        // 4. Background Image (Cherry Blossom School)
         GameObject bgObj = new GameObject("CherryBlossomBackground", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         bgObj.transform.SetParent(canvasObj.transform, false);
         RectTransform bgRect = bgObj.GetComponent<RectTransform>();
@@ -156,7 +168,7 @@ public static class SchoolSceneBuilder
         bgImg.preserveAspect = false;
         bgImg.color = Color.white;
 
-        // 6. Floating Sakura Petals Overlay
+        // 5. Floating Sakura Petals Overlay
         GameObject petalsObj = new GameObject("SakuraPetalsOverlay", typeof(RectTransform), typeof(SakuraPetalsOverlay));
         petalsObj.transform.SetParent(canvasObj.transform, false);
         RectTransform petalsRect = petalsObj.GetComponent<RectTransform>();
@@ -165,26 +177,9 @@ public static class SchoolSceneBuilder
         petalsRect.offsetMin = Vector2.zero;
         petalsRect.offsetMax = Vector2.zero;
 
-        // 7. Header Badge (Prologue Title)
-        GameObject badgeObj = new GameObject("HeaderBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        badgeObj.transform.SetParent(canvasObj.transform, false);
-        RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
-        badgeRect.anchorMin = new Vector2(0.2f, 0.90f);
-        badgeRect.anchorMax = new Vector2(0.8f, 0.98f);
-        badgeRect.offsetMin = Vector2.zero;
-        badgeRect.offsetMax = Vector2.zero;
-
-        TextMeshProUGUI badgeTmp = badgeObj.GetComponent<TextMeshProUGUI>();
-        badgeTmp.text = "PROLOGUE  \u2014  FIRST DAY OF SCHOOL";
-        badgeTmp.font = menuFont;
-        badgeTmp.fontSize = 32;
-        badgeTmp.fontStyle = FontStyles.Bold;
-        badgeTmp.alignment = TextAlignmentOptions.Center;
-        badgeTmp.color = new Color(1f, 0.95f, 0.98f, 0.95f);
-
         DefaultControls.Resources uiRes = new DefaultControls.Resources();
 
-        // 8. Full-screen Advance Click Overlay (placed BEFORE DialogueBox & Settings Icon so UI buttons sit on top)
+        // 6. Full-screen Advance Click Overlay (placed BEFORE interactive items & UI buttons so they sit on top)
         GameObject advanceObj = DefaultControls.CreateButton(uiRes);
         advanceObj.name = "AdvanceTrigger";
         advanceObj.transform.SetParent(canvasObj.transform, false);
@@ -196,8 +191,88 @@ public static class SchoolSceneBuilder
 
         Image advImg = advanceObj.GetComponent<Image>();
         advImg.color = new Color(0, 0, 0, 0);
-        Transform advText = advanceObj.transform.Find("Text");
-        if (advText != null) Object.DestroyImmediate(advText.gameObject);
+        foreach (Text legacyText in advanceObj.GetComponentsInChildren<Text>(true))
+        {
+            if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+        }
+
+        // 7. Clickable Memorial Poster beside the right side of the School Gate
+        GameObject memorialPosterObj = new GameObject("MemorialPosterObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        memorialPosterObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform memorialRect = memorialPosterObj.GetComponent<RectTransform>();
+        memorialRect.anchorMin = new Vector2(0.708f, 0.242f);
+        memorialRect.anchorMax = new Vector2(0.837f, 0.471f);
+        memorialRect.offsetMin = Vector2.zero;
+        memorialRect.offsetMax = Vector2.zero;
+
+        Image memorialImg = memorialPosterObj.GetComponent<Image>();
+        memorialImg.sprite = memorialSprite;
+        memorialImg.type = Image.Type.Simple;
+        memorialImg.preserveAspect = true;
+        memorialImg.color = Color.white;
+        memorialImg.raycastTarget = true;
+
+        Button memorialBtn = memorialPosterObj.GetComponent<Button>();
+        memorialBtn.targetGraphic = memorialImg;
+        ColorBlock mcb = memorialBtn.colors;
+        mcb.normalColor = Color.white;
+        mcb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+        mcb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+        mcb.selectedColor = Color.white;
+        memorialBtn.colors = mcb;
+
+        // 8. Center Inspection Modal when the player interacts with the Memorial Poster (placed BEFORE DialogueBox so it never blocks DialogueBox)
+        GameObject inspectModalObj = new GameObject("MemorialInspectModal", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(CanvasGroup));
+        inspectModalObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform inspectModalRect = inspectModalObj.GetComponent<RectTransform>();
+        inspectModalRect.anchorMin = Vector2.zero;
+        inspectModalRect.anchorMax = Vector2.one;
+        inspectModalRect.offsetMin = Vector2.zero;
+        inspectModalRect.offsetMax = Vector2.zero;
+
+        Image inspectBackdropImg = inspectModalObj.GetComponent<Image>();
+        inspectBackdropImg.color = new Color(0f, 0f, 0f, 0.04f);
+        inspectBackdropImg.raycastTarget = true;
+
+        Button closeInspectBtn = inspectModalObj.GetComponent<Button>();
+        closeInspectBtn.transition = Selectable.Transition.None;
+
+        CanvasGroup inspectModalCg = inspectModalObj.GetComponent<CanvasGroup>();
+        inspectModalCg.alpha = 0f;
+        inspectModalCg.interactable = false;
+        inspectModalCg.blocksRaycasts = false;
+
+        GameObject haloObj = new GameObject("InspectHaloGlow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        haloObj.transform.SetParent(inspectModalObj.transform, false);
+        RectTransform haloRect = haloObj.GetComponent<RectTransform>();
+        haloRect.anchorMin = new Vector2(0.24f, 0.25f);
+        haloRect.anchorMax = new Vector2(0.76f, 0.99f);
+        haloRect.offsetMin = Vector2.zero;
+        haloRect.offsetMax = Vector2.zero;
+
+        Image haloImg = haloObj.GetComponent<Image>();
+        haloImg.sprite = haloSprite;
+        haloImg.type = Image.Type.Simple;
+        haloImg.preserveAspect = true;
+        haloImg.color = new Color(1f, 0.99f, 0.95f, 0.95f);
+        haloImg.raycastTarget = false;
+
+        GameObject inspectCenterImgObj = new GameObject("MemorialInspectImage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        inspectCenterImgObj.transform.SetParent(inspectModalObj.transform, false);
+        RectTransform inspectCenterRect = inspectCenterImgObj.GetComponent<RectTransform>();
+        inspectCenterRect.anchorMin = new Vector2(0.31f, 0.305f);
+        inspectCenterRect.anchorMax = new Vector2(0.69f, 0.965f);
+        inspectCenterRect.offsetMin = Vector2.zero;
+        inspectCenterRect.offsetMax = Vector2.zero;
+
+        Image inspectCenterImg = inspectCenterImgObj.GetComponent<Image>();
+        inspectCenterImg.sprite = memorialSprite;
+        inspectCenterImg.type = Image.Type.Simple;
+        inspectCenterImg.preserveAspect = true;
+        inspectCenterImg.color = Color.white;
+        inspectCenterImg.raycastTarget = false;
+
+        inspectModalObj.SetActive(false);
 
         // 9. Restyled Visual Novel Dialogue Box (matching reference image)
         GameObject boxObj = new GameObject("DialogueBox", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -255,7 +330,7 @@ public static class SchoolSceneBuilder
         spRect.offsetMax = Vector2.zero;
 
         TextMeshProUGUI spTmp = speakerObj.GetComponent<TextMeshProUGUI>();
-        spTmp.text = "<b>Narrator</b>";
+        spTmp.text = "<b>You</b>";
         spTmp.font = menuFont;
         spTmp.fontSize = 28;
         spTmp.alignment = TextAlignmentOptions.Center;
@@ -266,16 +341,18 @@ public static class SchoolSceneBuilder
         GameObject diaTextObj = new GameObject("DialogueText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         diaTextObj.transform.SetParent(boxObj.transform, false);
         RectTransform diaRect = diaTextObj.GetComponent<RectTransform>();
-        diaRect.anchorMin = new Vector2(0.045f, 0.14f);
-        diaRect.anchorMax = new Vector2(0.955f, 0.74f);
+        diaRect.anchorMin = new Vector2(0.035f, 0.14f);
+        diaRect.anchorMax = new Vector2(0.965f, 0.74f);
         diaRect.offsetMin = Vector2.zero;
         diaRect.offsetMax = Vector2.zero;
 
         TextMeshProUGUI diaTmp = diaTextObj.GetComponent<TextMeshProUGUI>();
-        diaTmp.text = "The gentle morning breeze carries the sweet scent of spring cherry blossoms through the air...";
-        diaTmp.font = menuFont;
+        diaTmp.text = "A year. Long enough for the rain to peel the posters off the fence.";
+        diaTmp.font = defaultFont;
         diaTmp.fontSize = 26;
         diaTmp.lineSpacing = 16f;
+        diaTmp.textWrappingMode = TextWrappingModes.Normal;
+        diaTmp.margin = Vector4.zero;
         diaTmp.alignment = TextAlignmentOptions.TopLeft;
         diaTmp.color = new Color(0.96f, 0.98f, 1f, 1f);
         diaTmp.raycastTarget = false;
@@ -308,8 +385,10 @@ public static class SchoolSceneBuilder
         settingsBtnRect.anchoredPosition = Vector2.zero;
         settingsBtnRect.sizeDelta = new Vector2(74f, 74f);
 
-        Transform defaultSettingsText = settingsBtnObj.transform.Find("Text");
-        if (defaultSettingsText != null) Object.DestroyImmediate(defaultSettingsText.gameObject);
+        foreach (Text legacyText in settingsBtnObj.GetComponentsInChildren<Text>(true))
+        {
+            if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+        }
 
         Image settingsBtnImg = settingsBtnObj.GetComponent<Image>();
         if (gearIconSprite != null)
@@ -365,18 +444,25 @@ public static class SchoolSceneBuilder
         AudioSource ctrlAudio = canvasObj.AddComponent<AudioSource>();
         ctrlAudio.playOnAwake = false;
 
+        UnityEventTools.AddPersistentListener(memorialBtn.onClick, controller.OnMemorialPosterClicked);
+        UnityEventTools.AddPersistentListener(closeInspectBtn.onClick, controller.CloseMemorialInspect);
+
         SerializedObject so = new SerializedObject(controller);
         so.Update();
         so.FindProperty("speakerPlateObject").objectReferenceValue = speakerPlateObj;
         so.FindProperty("speakerNameText").objectReferenceValue = spTmp;
         so.FindProperty("dialogueText").objectReferenceValue = diaTmp;
-        so.FindProperty("chapterBadgeText").objectReferenceValue = badgeTmp;
         so.FindProperty("nextButton").objectReferenceValue = advanceObj.GetComponent<Button>();
         so.FindProperty("settingsIconButton").objectReferenceValue = settingsIconBtn;
         so.FindProperty("backToMenuButton").objectReferenceValue = settingsIconBtn;
         so.FindProperty("dialoguePanel").objectReferenceValue = boxObj;
         so.FindProperty("settingsMenu").objectReferenceValue = settingsMenu;
         so.FindProperty("saveArchiveMenu").objectReferenceValue = saveArchiveMenu;
+        so.FindProperty("memorialPosterButton").objectReferenceValue = memorialBtn;
+        so.FindProperty("memorialInspectCanvasGroup").objectReferenceValue = inspectModalCg;
+        so.FindProperty("closeInspectButton").objectReferenceValue = closeInspectBtn;
+        so.FindProperty("schoolBgmSource").objectReferenceValue = bgmSource;
+        so.FindProperty("schoolBgmClip").objectReferenceValue = darkMelodyClip;
         so.FindProperty("audioSource").objectReferenceValue = ctrlAudio;
         so.FindProperty("clickClip").objectReferenceValue = clickClip;
         so.ApplyModifiedProperties();
@@ -551,8 +637,10 @@ public static class SchoolSceneBuilder
             Image bImg = btnObj.GetComponent<Image>();
             bImg.color = bgColor;
 
-            Transform oldText = btnObj.transform.Find("Text");
-            if (oldText != null) Object.DestroyImmediate(oldText.gameObject);
+            foreach (Text legacyText in btnObj.GetComponentsInChildren<Text>(true))
+            {
+                if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+            }
 
             GameObject textObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObj.transform.SetParent(btnObj.transform, false);
@@ -718,6 +806,16 @@ public static class SchoolSceneBuilder
             else
             {
                 return;
+            }
+        }
+
+        // Remove any leftover legacy "Button" Text objects in MenuScreen
+        Text[] legacyTexts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (Text t in legacyTexts)
+        {
+            if (t != null && (t.text == "Button" || t.gameObject.name.Contains("Text (Legacy)")))
+            {
+                Object.DestroyImmediate(t.gameObject);
             }
         }
 

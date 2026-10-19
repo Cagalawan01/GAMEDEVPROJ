@@ -26,14 +26,13 @@ public static class OpeningSceneBuilder
         CheckAndBuild();
     }
 
-    [InitializeOnLoadMethod]
     public static void CheckAndBuild()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
-        if (!SessionState.GetBool("OpeningScene_Built_V2", false) || !File.Exists(SCENE_PATH))
+        if (!SessionState.GetBool("OpeningScene_Built_V5", false) || !File.Exists(SCENE_PATH))
         {
-            SessionState.SetBool("OpeningScene_Built_V2", true);
+            SessionState.SetBool("OpeningScene_Built_V5", true);
             BuildOpeningSceneAndWireMenu();
         }
         else
@@ -59,14 +58,59 @@ public static class OpeningSceneBuilder
         Debug.Log("<color=cyan>[OpeningSceneBuilder] Flow ready: MenuScreen (Start) -> OpeningScene -> SchoolScene!</color>");
     }
 
+    private static Sprite TryLoadSpriteAtPath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null && (importer.textureType != TextureImporterType.Sprite || importer.spriteImportMode != SpriteImportMode.Single))
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.SaveAndReimport();
+        }
+
+        Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (s == null)
+        {
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+        if (s == null)
+        {
+            Object[] all = AssetDatabase.LoadAllAssetsAtPath(path);
+            foreach (Object o in all)
+            {
+                if (o is Sprite sp) return sp;
+            }
+        }
+        return s;
+    }
+
+    private static Sprite LoadOrImportSprite(string primaryPath, string fallbackPath = null)
+    {
+        Sprite s = TryLoadSpriteAtPath(primaryPath);
+        if (s != null) return s;
+        return TryLoadSpriteAtPath(fallbackPath);
+    }
+
     public static void BuildOpeningScene(bool leaveOpen = true)
     {
         TMP_FontAsset bodyFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
         TMP_FontAsset titleFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Buttons/Fonts/BLKCHCRY SDF.asset");
+        string gradPath = AssetDatabase.GUIDToAssetPath("cc5764637db12874fb11c165ba1bdc16");
+        TMP_ColorGradient titleGradient = !string.IsNullOrEmpty(gradPath)
+            ? AssetDatabase.LoadAssetAtPath<TMP_ColorGradient>(gradPath)
+            : AssetDatabase.LoadAssetAtPath<TMP_ColorGradient>("Assets/Buttons/Fonts/New TMP Color Gradient.asset");
         if (titleFont == null) titleFont = bodyFont;
         if (bodyFont == null) bodyFont = titleFont;
 
         Sprite dividerSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/titledesign1.png");
+        Sprite namePanelSprite = LoadOrImportSprite("Assets/Resources/name_prompt_panel.png", "Assets/Art/name_prompt_panel.png");
+        Sprite nameInputSprite = LoadOrImportSprite("Assets/Resources/name_input_frame.png", "Assets/Art/name_input_frame.png");
+        Sprite nameConfirmSprite = LoadOrImportSprite("Assets/Resources/name_confirm_button.png", "Assets/Art/name_confirm_button.png");
 
         string previousScenePath = EditorSceneManager.GetActiveScene().path;
 
@@ -169,11 +213,21 @@ public static class OpeningSceneBuilder
         titleTextRect.offsetMax = Vector2.zero;
 
         TextMeshProUGUI titleTmp = titleTextObj.GetComponent<TextMeshProUGUI>();
-        titleTmp.text = "The Day the Blue Flowers Died";
+        titleTmp.text = "RESME";
         titleTmp.font = titleFont;
-        titleTmp.fontSize = 68;
+        titleTmp.fontSize = 160;
+        titleTmp.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
         titleTmp.alignment = TextAlignmentOptions.Center;
-        titleTmp.color = new Color(0.78f, 0.90f, 1f, 1f);
+        titleTmp.color = Color.white;
+        titleTmp.enableVertexGradient = true;
+        Color bottomGrey = new Color(0.6981132f, 0.6981132f, 0.6981132f, 1f);
+        titleTmp.colorGradient = new VertexGradient(Color.white, Color.white, bottomGrey, bottomGrey);
+        if (titleGradient != null)
+        {
+            titleTmp.colorGradientPreset = titleGradient;
+        }
+        titleTmp.textWrappingMode = TextWrappingModes.NoWrap;
+        titleTmp.overflowMode = TextOverflowModes.Overflow;
         titleTmp.raycastTarget = false;
 
         if (dividerSprite != null)
@@ -245,8 +299,171 @@ public static class OpeningSceneBuilder
 
         Image advImg = advanceObj.GetComponent<Image>();
         advImg.color = new Color(0f, 0f, 0f, 0f);
-        Transform advText = advanceObj.transform.Find("Text");
-        if (advText != null) Object.DestroyImmediate(advText.gameObject);
+        foreach (Text legacyText in advanceObj.GetComponentsInChildren<Text>(true))
+        {
+            if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
+        }
+
+        // 8b. Ornate Gothic Name Prompt Container (hidden until after RESME title card)
+        GameObject namePromptRoot = new GameObject("NamePromptContainer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(CanvasGroup));
+        namePromptRoot.transform.SetParent(canvasObj.transform, false);
+        RectTransform nameRootRect = namePromptRoot.GetComponent<RectTransform>();
+        nameRootRect.anchorMin = new Vector2(0.22f, 0.24f);
+        nameRootRect.anchorMax = new Vector2(0.78f, 0.76f);
+        nameRootRect.offsetMin = Vector2.zero;
+        nameRootRect.offsetMax = Vector2.zero;
+
+        Image namePanelImg = namePromptRoot.GetComponent<Image>();
+        if (namePanelSprite != null)
+        {
+            namePanelImg.sprite = namePanelSprite;
+            namePanelImg.type = Image.Type.Simple;
+            namePanelImg.preserveAspect = false;
+            namePanelImg.color = Color.white;
+        }
+        else
+        {
+            namePanelImg.color = new Color(0.04f, 0.09f, 0.18f, 0.96f);
+        }
+
+        CanvasGroup namePromptCg = namePromptRoot.GetComponent<CanvasGroup>();
+        namePromptCg.alpha = 0f;
+        namePromptCg.interactable = false;
+        namePromptCg.blocksRaycasts = false;
+
+        GameObject nameLabelObj = new GameObject("NamePromptLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        nameLabelObj.transform.SetParent(namePromptRoot.transform, false);
+        RectTransform nameLabelRect = nameLabelObj.GetComponent<RectTransform>();
+        nameLabelRect.anchorMin = new Vector2(0.10f, 0.68f);
+        nameLabelRect.anchorMax = new Vector2(0.90f, 0.88f);
+        nameLabelRect.offsetMin = Vector2.zero;
+        nameLabelRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI nameLabelTmp = nameLabelObj.GetComponent<TextMeshProUGUI>();
+        nameLabelTmp.text = "What will your name be?";
+        nameLabelTmp.font = titleFont;
+        nameLabelTmp.fontSize = 52f;
+        nameLabelTmp.alignment = TextAlignmentOptions.Center;
+        nameLabelTmp.color = new Color(0.93f, 0.97f, 1f, 1f);
+        nameLabelTmp.raycastTarget = false;
+
+        GameObject nameInputObj = new GameObject("NameInputField", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(TMP_InputField));
+        nameInputObj.transform.SetParent(namePromptRoot.transform, false);
+        RectTransform nameInputRect = nameInputObj.GetComponent<RectTransform>();
+        nameInputRect.anchorMin = new Vector2(0.16f, 0.37f);
+        nameInputRect.anchorMax = new Vector2(0.84f, 0.63f);
+        nameInputRect.offsetMin = Vector2.zero;
+        nameInputRect.offsetMax = Vector2.zero;
+
+        Image nameInputBg = nameInputObj.GetComponent<Image>();
+        if (nameInputSprite != null)
+        {
+            nameInputBg.sprite = nameInputSprite;
+            nameInputBg.type = Image.Type.Simple;
+            nameInputBg.preserveAspect = false;
+            nameInputBg.color = Color.white;
+        }
+        else
+        {
+            nameInputBg.color = new Color(0.05f, 0.12f, 0.22f, 0.95f);
+        }
+
+        GameObject textAreaObj = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
+        textAreaObj.transform.SetParent(nameInputObj.transform, false);
+        RectTransform textAreaRect = textAreaObj.GetComponent<RectTransform>();
+        textAreaRect.anchorMin = new Vector2(0.08f, 0.18f);
+        textAreaRect.anchorMax = new Vector2(0.92f, 0.82f);
+        textAreaRect.offsetMin = Vector2.zero;
+        textAreaRect.offsetMax = Vector2.zero;
+
+        GameObject placeholderObj = new GameObject("Placeholder", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        placeholderObj.transform.SetParent(textAreaObj.transform, false);
+        RectTransform phRect = placeholderObj.GetComponent<RectTransform>();
+        phRect.anchorMin = Vector2.zero;
+        phRect.anchorMax = Vector2.one;
+        phRect.offsetMin = Vector2.zero;
+        phRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI phTmp = placeholderObj.GetComponent<TextMeshProUGUI>();
+        phTmp.text = "Enter your name...";
+        phTmp.font = bodyFont;
+        phTmp.fontSize = 30f;
+        phTmp.fontStyle = FontStyles.Italic;
+        phTmp.alignment = TextAlignmentOptions.Center;
+        phTmp.color = new Color(0.55f, 0.70f, 0.86f, 0.55f);
+        phTmp.raycastTarget = false;
+
+        GameObject inputTextObj = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        inputTextObj.transform.SetParent(textAreaObj.transform, false);
+        RectTransform txtRect = inputTextObj.GetComponent<RectTransform>();
+        txtRect.anchorMin = Vector2.zero;
+        txtRect.anchorMax = Vector2.one;
+        txtRect.offsetMin = Vector2.zero;
+        txtRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI txtTmp = inputTextObj.GetComponent<TextMeshProUGUI>();
+        txtTmp.text = "";
+        txtTmp.font = bodyFont;
+        txtTmp.fontSize = 34f;
+        txtTmp.alignment = TextAlignmentOptions.Center;
+        txtTmp.color = new Color(0.94f, 0.98f, 1f, 1f);
+        txtTmp.raycastTarget = false;
+
+        TMP_InputField nameInput = nameInputObj.GetComponent<TMP_InputField>();
+        nameInput.textViewport = textAreaRect;
+        nameInput.textComponent = txtTmp;
+        nameInput.placeholder = phTmp;
+        nameInput.fontAsset = bodyFont;
+        nameInput.characterLimit = 24;
+        nameInput.contentType = TMP_InputField.ContentType.Standard;
+        nameInput.lineType = TMP_InputField.LineType.SingleLine;
+        nameInput.customCaretColor = true;
+        nameInput.caretColor = new Color(0.75f, 0.90f, 1f, 1f);
+        nameInput.caretWidth = 2;
+
+        GameObject confirmBtnObj = new GameObject("ConfirmNameButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        confirmBtnObj.transform.SetParent(namePromptRoot.transform, false);
+        RectTransform confirmBtnRect = confirmBtnObj.GetComponent<RectTransform>();
+        confirmBtnRect.anchorMin = new Vector2(0.31f, 0.11f);
+        confirmBtnRect.anchorMax = new Vector2(0.69f, 0.29f);
+        confirmBtnRect.offsetMin = Vector2.zero;
+        confirmBtnRect.offsetMax = Vector2.zero;
+
+        Image confirmBtnImg = confirmBtnObj.GetComponent<Image>();
+        if (nameConfirmSprite != null)
+        {
+            confirmBtnImg.sprite = nameConfirmSprite;
+            confirmBtnImg.type = Image.Type.Simple;
+            confirmBtnImg.preserveAspect = false;
+            confirmBtnImg.color = Color.white;
+        }
+        else
+        {
+            confirmBtnImg.color = new Color(0.08f, 0.18f, 0.34f, 0.96f);
+        }
+
+        GameObject confirmBtnTextObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        confirmBtnTextObj.transform.SetParent(confirmBtnObj.transform, false);
+        RectTransform confirmBtnTextRect = confirmBtnTextObj.GetComponent<RectTransform>();
+        confirmBtnTextRect.anchorMin = Vector2.zero;
+        confirmBtnTextRect.anchorMax = Vector2.one;
+        confirmBtnTextRect.offsetMin = Vector2.zero;
+        confirmBtnTextRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI confirmBtnTmp = confirmBtnTextObj.GetComponent<TextMeshProUGUI>();
+        confirmBtnTmp.text = "Confirm";
+        confirmBtnTmp.font = titleFont;
+        confirmBtnTmp.fontSize = 38f;
+        confirmBtnTmp.alignment = TextAlignmentOptions.Center;
+        confirmBtnTmp.color = new Color(0.93f, 0.97f, 1f, 1f);
+        confirmBtnTmp.raycastTarget = false;
+
+        Button confirmBtn = confirmBtnObj.GetComponent<Button>();
+        ColorBlock cb = confirmBtn.colors;
+        cb.normalColor = Color.white;
+        cb.highlightedColor = new Color(1.18f, 1.28f, 1.40f, 1f);
+        cb.pressedColor = new Color(0.75f, 0.88f, 1f, 1f);
+        confirmBtn.colors = cb;
 
         // 9. Attach OpeningSceneController and bind references
         OpeningSceneController controller = canvasObj.AddComponent<OpeningSceneController>();
@@ -258,6 +475,9 @@ public static class OpeningSceneBuilder
         so.FindProperty("subtitleText").objectReferenceValue = subTmp;
         so.FindProperty("tapPromptCanvasGroup").objectReferenceValue = promptCg;
         so.FindProperty("advanceButton").objectReferenceValue = advanceObj.GetComponent<Button>();
+        so.FindProperty("namePromptCanvasGroup").objectReferenceValue = namePromptCg;
+        so.FindProperty("nameInputField").objectReferenceValue = nameInput;
+        so.FindProperty("confirmNameButton").objectReferenceValue = confirmBtn;
         so.ApplyModifiedProperties();
 
         // 10. Save Scene
