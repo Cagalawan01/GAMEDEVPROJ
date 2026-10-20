@@ -286,38 +286,6 @@ public class OpeningSceneController : MonoBehaviour
 
     private void EnsureNamePromptUI()
     {
-        Sprite panelSprite = LoadResourceSprite("name_prompt_panel");
-        Sprite inputFrameSprite = LoadResourceSprite("name_input_frame");
-        Sprite confirmBtnSprite = LoadResourceSprite("name_confirm_button");
-
-        if (namePromptCanvasGroup != null && nameInputField != null && confirmNameButton != null)
-        {
-            Image existingPanelImg = namePromptCanvasGroup.GetComponent<Image>();
-            if (existingPanelImg != null && existingPanelImg.sprite == null && panelSprite != null)
-            {
-                existingPanelImg.sprite = panelSprite;
-                existingPanelImg.color = Color.white;
-            }
-
-            Image existingInputImg = nameInputField.GetComponent<Image>();
-            if (existingInputImg != null && existingInputImg.sprite == null && inputFrameSprite != null)
-            {
-                existingInputImg.sprite = inputFrameSprite;
-                existingInputImg.color = Color.white;
-            }
-
-            Image existingBtnImg = confirmNameButton.GetComponent<Image>();
-            if (existingBtnImg != null && existingBtnImg.sprite == null && confirmBtnSprite != null)
-            {
-                existingBtnImg.sprite = confirmBtnSprite;
-                existingBtnImg.color = Color.white;
-            }
-
-            confirmNameButton.onClick.RemoveAllListeners();
-            confirmNameButton.onClick.AddListener(OnConfirmNameClicked);
-            return;
-        }
-
         TMP_FontAsset defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
         if (defaultFont == null)
         {
@@ -325,82 +293,168 @@ public class OpeningSceneController : MonoBehaviour
         }
         TMP_FontAsset headerFont = titleText != null ? titleText.font : defaultFont;
 
-        // Outer Ornate Gothic Panel Container (matching reference proportions & corner filigree)
+        if (namePromptCanvasGroup != null && nameInputField != null && confirmNameButton != null)
+        {
+            // 1. Fullscreen pure black container
+            RectTransform existingRootRect = namePromptCanvasGroup.GetComponent<RectTransform>();
+            if (existingRootRect != null)
+            {
+                existingRootRect.anchorMin = Vector2.zero;
+                existingRootRect.anchorMax = Vector2.one;
+                existingRootRect.offsetMin = Vector2.zero;
+                existingRootRect.offsetMax = Vector2.zero;
+            }
+
+            Image existingPanelImg = namePromptCanvasGroup.GetComponent<Image>();
+            if (existingPanelImg != null)
+            {
+                existingPanelImg.sprite = null;
+                existingPanelImg.color = Color.black;
+            }
+
+            // 2. Center Prompt Label ("What will your name be?")
+            TextMeshProUGUI existingLabel = namePromptCanvasGroup.GetComponentInChildren<TextMeshProUGUI>();
+            if (existingLabel != null && existingLabel.gameObject.name.Contains("Label"))
+            {
+                RectTransform lr = existingLabel.GetComponent<RectTransform>();
+                lr.anchorMin = new Vector2(0.20f, 0.58f);
+                lr.anchorMax = new Vector2(0.80f, 0.68f);
+                lr.offsetMin = Vector2.zero;
+                lr.offsetMax = Vector2.zero;
+                existingLabel.text = "What will your name be?";
+                existingLabel.fontSize = 44f;
+                existingLabel.color = Color.white;
+                existingLabel.alignment = TextAlignmentOptions.Center;
+            }
+
+            // 3. Black Input Box
+            RectTransform existingInputRect = nameInputField.GetComponent<RectTransform>();
+            if (existingInputRect != null)
+            {
+                existingInputRect.anchorMin = new Vector2(0.33f, 0.46f);
+                existingInputRect.anchorMax = new Vector2(0.67f, 0.54f);
+                existingInputRect.offsetMin = Vector2.zero;
+                existingInputRect.offsetMax = Vector2.zero;
+            }
+
+            Image existingInputImg = nameInputField.GetComponent<Image>();
+            if (existingInputImg != null)
+            {
+                existingInputImg.sprite = null;
+                existingInputImg.color = new Color(0.02f, 0.02f, 0.02f, 1f);
+            }
+
+            ColorBlock inCb = nameInputField.colors;
+            inCb.normalColor = Color.white;
+            inCb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
+            inCb.selectedColor = Color.white;
+            nameInputField.colors = inCb;
+
+            Outline inOutline = nameInputField.GetComponent<Outline>();
+            if (inOutline != null)
+            {
+                Destroy(inOutline);
+            }
+
+            if (nameInputField.textComponent != null)
+            {
+                nameInputField.textComponent.color = Color.white;
+                nameInputField.textComponent.fontSize = 32f;
+                nameInputField.textComponent.alignment = TextAlignmentOptions.Center;
+            }
+            if (nameInputField.placeholder is TextMeshProUGUI phTmp)
+            {
+                phTmp.color = new Color(0.45f, 0.45f, 0.45f, 0.6f);
+                phTmp.fontSize = 28f;
+                phTmp.alignment = TextAlignmentOptions.Center;
+            }
+            nameInputField.caretColor = Color.white;
+
+            // 4. Clean Black Confirm Button
+            RectTransform existingBtnRect = confirmNameButton.GetComponent<RectTransform>();
+            if (existingBtnRect != null)
+            {
+                existingBtnRect.anchorMin = new Vector2(0.42f, 0.34f);
+                existingBtnRect.anchorMax = new Vector2(0.58f, 0.42f);
+                existingBtnRect.offsetMin = Vector2.zero;
+                existingBtnRect.offsetMax = Vector2.zero;
+            }
+
+            Image existingBtnImg = confirmNameButton.GetComponent<Image>();
+            if (existingBtnImg != null)
+            {
+                existingBtnImg.sprite = null;
+                existingBtnImg.color = new Color(0.04f, 0.04f, 0.04f, 1f);
+            }
+
+            ColorBlock cb = confirmNameButton.colors;
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.2f, 1.2f, 1.2f, 1f);
+            cb.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+            cb.selectedColor = Color.white;
+            confirmNameButton.colors = cb;
+
+            confirmNameButton.onClick.RemoveAllListeners();
+            confirmNameButton.onClick.AddListener(OnConfirmNameClicked);
+            return;
+        }
+
+        // Fullscreen pure black background container
         GameObject promptRoot = new GameObject("NamePromptContainer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(CanvasGroup));
         promptRoot.transform.SetParent(transform, false);
         RectTransform rootRect = promptRoot.GetComponent<RectTransform>();
-        rootRect.anchorMin = new Vector2(0.22f, 0.24f);
-        rootRect.anchorMax = new Vector2(0.78f, 0.76f);
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
         rootRect.offsetMin = Vector2.zero;
         rootRect.offsetMax = Vector2.zero;
 
         Image panelImg = promptRoot.GetComponent<Image>();
-        if (panelSprite != null)
-        {
-            panelImg.sprite = panelSprite;
-            panelImg.type = Image.Type.Simple;
-            panelImg.preserveAspect = false;
-            panelImg.color = Color.white;
-        }
-        else
-        {
-            panelImg.color = new Color(0.04f, 0.09f, 0.18f, 0.96f);
-        }
+        panelImg.sprite = null;
+        panelImg.color = Color.black;
 
         namePromptCanvasGroup = promptRoot.GetComponent<CanvasGroup>();
         namePromptCanvasGroup.alpha = 0f;
         namePromptCanvasGroup.interactable = false;
         namePromptCanvasGroup.blocksRaycasts = false;
 
-        // 1. Prompt Question Text ("What will your name be?" in Gothic Header Font)
+        // 1. Prompt Question Text ("What will your name be?")
         GameObject labelObj = new GameObject("NamePromptLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         labelObj.transform.SetParent(promptRoot.transform, false);
         RectTransform labelRect = labelObj.GetComponent<RectTransform>();
-        labelRect.anchorMin = new Vector2(0.10f, 0.68f);
-        labelRect.anchorMax = new Vector2(0.90f, 0.88f);
+        labelRect.anchorMin = new Vector2(0.20f, 0.58f);
+        labelRect.anchorMax = new Vector2(0.80f, 0.68f);
         labelRect.offsetMin = Vector2.zero;
         labelRect.offsetMax = Vector2.zero;
 
         TextMeshProUGUI labelTmp = labelObj.GetComponent<TextMeshProUGUI>();
         labelTmp.text = "What will your name be?";
         if (headerFont != null) labelTmp.font = headerFont;
-        labelTmp.fontSize = 52f;
+        labelTmp.fontSize = 44f;
         labelTmp.alignment = TextAlignmentOptions.Center;
-        labelTmp.color = new Color(0.93f, 0.97f, 1f, 1f);
+        labelTmp.color = Color.white;
         labelTmp.raycastTarget = false;
 
-        // 2. Ornate Input Field Frame (with diamond side medallions & top/bottom crests)
+        // 2. Pure Black Input Field with subtle outline
         GameObject inputObj = new GameObject("NameInputField", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(TMP_InputField));
         inputObj.transform.SetParent(promptRoot.transform, false);
         RectTransform inputRect = inputObj.GetComponent<RectTransform>();
-        inputRect.anchorMin = new Vector2(0.16f, 0.37f);
-        inputRect.anchorMax = new Vector2(0.84f, 0.63f);
+        inputRect.anchorMin = new Vector2(0.33f, 0.46f);
+        inputRect.anchorMax = new Vector2(0.67f, 0.54f);
         inputRect.offsetMin = Vector2.zero;
         inputRect.offsetMax = Vector2.zero;
 
         Image inputBg = inputObj.GetComponent<Image>();
-        if (inputFrameSprite != null)
-        {
-            inputBg.sprite = inputFrameSprite;
-            inputBg.type = Image.Type.Simple;
-            inputBg.preserveAspect = false;
-            inputBg.color = Color.white;
-        }
-        else
-        {
-            inputBg.color = new Color(0.05f, 0.12f, 0.22f, 0.95f);
-        }
+        inputBg.sprite = null;
+        inputBg.color = new Color(0.02f, 0.02f, 0.02f, 1f);
 
-        // Text Area (Viewport inside the ornate frame)
         GameObject textAreaObj = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
         textAreaObj.transform.SetParent(inputObj.transform, false);
         RectTransform textAreaRect = textAreaObj.GetComponent<RectTransform>();
-        textAreaRect.anchorMin = new Vector2(0.08f, 0.18f);
-        textAreaRect.anchorMax = new Vector2(0.92f, 0.82f);
+        textAreaRect.anchorMin = new Vector2(0.05f, 0.10f);
+        textAreaRect.anchorMax = new Vector2(0.95f, 0.90f);
         textAreaRect.offsetMin = Vector2.zero;
         textAreaRect.offsetMax = Vector2.zero;
 
-        // Placeholder Text (Default readable font)
         GameObject placeholderObj = new GameObject("Placeholder", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         placeholderObj.transform.SetParent(textAreaObj.transform, false);
         RectTransform phRect = placeholderObj.GetComponent<RectTransform>();
@@ -409,16 +463,15 @@ public class OpeningSceneController : MonoBehaviour
         phRect.offsetMin = Vector2.zero;
         phRect.offsetMax = Vector2.zero;
 
-        TextMeshProUGUI phTmp = placeholderObj.GetComponent<TextMeshProUGUI>();
-        phTmp.text = "Enter your name...";
-        if (defaultFont != null) phTmp.font = defaultFont;
-        phTmp.fontSize = 30f;
-        phTmp.fontStyle = FontStyles.Italic;
-        phTmp.alignment = TextAlignmentOptions.Center;
-        phTmp.color = new Color(0.55f, 0.70f, 0.86f, 0.55f);
-        phTmp.raycastTarget = false;
+        TextMeshProUGUI phDynTmp = placeholderObj.GetComponent<TextMeshProUGUI>();
+        phDynTmp.text = "Enter your name...";
+        if (defaultFont != null) phDynTmp.font = defaultFont;
+        phDynTmp.fontSize = 28f;
+        phDynTmp.fontStyle = FontStyles.Italic;
+        phDynTmp.alignment = TextAlignmentOptions.Center;
+        phDynTmp.color = new Color(0.45f, 0.45f, 0.45f, 0.6f);
+        phDynTmp.raycastTarget = false;
 
-        // Input Text (Default readable font so player name is clear & easy to read)
         GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         textObj.transform.SetParent(textAreaObj.transform, false);
         RectTransform txtRect = textObj.GetComponent<RectTransform>();
@@ -427,47 +480,42 @@ public class OpeningSceneController : MonoBehaviour
         txtRect.offsetMin = Vector2.zero;
         txtRect.offsetMax = Vector2.zero;
 
-        TextMeshProUGUI txtTmp = textObj.GetComponent<TextMeshProUGUI>();
-        txtTmp.text = "";
-        if (defaultFont != null) txtTmp.font = defaultFont;
-        txtTmp.fontSize = 34f;
-        txtTmp.alignment = TextAlignmentOptions.Center;
-        txtTmp.color = new Color(0.94f, 0.98f, 1f, 1f);
-        txtTmp.raycastTarget = false;
+        TextMeshProUGUI txtDynTmp = textObj.GetComponent<TextMeshProUGUI>();
+        txtDynTmp.text = "";
+        if (defaultFont != null) txtDynTmp.font = defaultFont;
+        txtDynTmp.fontSize = 32f;
+        txtDynTmp.alignment = TextAlignmentOptions.Center;
+        txtDynTmp.color = Color.white;
+        txtDynTmp.raycastTarget = false;
 
         nameInputField = inputObj.GetComponent<TMP_InputField>();
         nameInputField.textViewport = textAreaRect;
-        nameInputField.textComponent = txtTmp;
-        nameInputField.placeholder = phTmp;
+        nameInputField.textComponent = txtDynTmp;
+        nameInputField.placeholder = phDynTmp;
         nameInputField.fontAsset = defaultFont;
         nameInputField.characterLimit = 24;
         nameInputField.contentType = TMP_InputField.ContentType.Standard;
         nameInputField.lineType = TMP_InputField.LineType.SingleLine;
         nameInputField.customCaretColor = true;
-        nameInputField.caretColor = new Color(0.75f, 0.90f, 1f, 1f);
+        nameInputField.caretColor = Color.white;
         nameInputField.caretWidth = 2;
 
-        // 3. Ornate Confirm Button (Scalloped diamond-ended frame matching reference)
-        GameObject btnObj = new GameObject("ConfirmNameButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        // 3. Black Confirm Button with clean border
+        GameObject btnObj = new GameObject("ConfirmNameButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
         btnObj.transform.SetParent(promptRoot.transform, false);
         RectTransform btnRect = btnObj.GetComponent<RectTransform>();
-        btnRect.anchorMin = new Vector2(0.31f, 0.11f);
-        btnRect.anchorMax = new Vector2(0.69f, 0.29f);
+        btnRect.anchorMin = new Vector2(0.42f, 0.34f);
+        btnRect.anchorMax = new Vector2(0.58f, 0.42f);
         btnRect.offsetMin = Vector2.zero;
         btnRect.offsetMax = Vector2.zero;
 
         Image btnImg = btnObj.GetComponent<Image>();
-        if (confirmBtnSprite != null)
-        {
-            btnImg.sprite = confirmBtnSprite;
-            btnImg.type = Image.Type.Simple;
-            btnImg.preserveAspect = false;
-            btnImg.color = Color.white;
-        }
-        else
-        {
-            btnImg.color = new Color(0.08f, 0.18f, 0.34f, 0.96f);
-        }
+        btnImg.sprite = null;
+        btnImg.color = new Color(0.08f, 0.08f, 0.08f, 1f);
+
+        Outline btnOutlineDyn = btnObj.GetComponent<Outline>();
+        btnOutlineDyn.effectColor = new Color(0.38f, 0.38f, 0.38f, 0.90f);
+        btnOutlineDyn.effectDistance = new Vector2(1.5f, -1.5f);
 
         GameObject btnTextObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         btnTextObj.transform.SetParent(btnObj.transform, false);
@@ -477,20 +525,21 @@ public class OpeningSceneController : MonoBehaviour
         btnTextRect.offsetMin = Vector2.zero;
         btnTextRect.offsetMax = Vector2.zero;
 
-        TextMeshProUGUI btnTmp = btnTextObj.GetComponent<TextMeshProUGUI>();
-        btnTmp.text = "Confirm";
-        if (headerFont != null) btnTmp.font = headerFont;
-        btnTmp.fontSize = 38f;
-        btnTmp.alignment = TextAlignmentOptions.Center;
-        btnTmp.color = new Color(0.93f, 0.97f, 1f, 1f);
-        btnTmp.raycastTarget = false;
+        TextMeshProUGUI btnDynTmp = btnTextObj.GetComponent<TextMeshProUGUI>();
+        btnDynTmp.text = "Confirm";
+        if (headerFont != null) btnDynTmp.font = headerFont;
+        btnDynTmp.fontSize = 30f;
+        btnDynTmp.alignment = TextAlignmentOptions.Center;
+        btnDynTmp.color = Color.white;
+        btnDynTmp.raycastTarget = false;
 
         confirmNameButton = btnObj.GetComponent<Button>();
-        ColorBlock cb = confirmNameButton.colors;
-        cb.normalColor = Color.white;
-        cb.highlightedColor = new Color(1.18f, 1.28f, 1.40f, 1f);
-        cb.pressedColor = new Color(0.75f, 0.88f, 1f, 1f);
-        confirmNameButton.colors = cb;
+        ColorBlock cbDyn = confirmNameButton.colors;
+        cbDyn.normalColor = new Color(0.08f, 0.08f, 0.08f, 1f);
+        cbDyn.highlightedColor = new Color(0.20f, 0.20f, 0.20f, 1f);
+        cbDyn.pressedColor = new Color(0.04f, 0.04f, 0.04f, 1f);
+        cbDyn.selectedColor = new Color(0.08f, 0.08f, 0.08f, 1f);
+        confirmNameButton.colors = cbDyn;
         confirmNameButton.onClick.RemoveAllListeners();
         confirmNameButton.onClick.AddListener(OnConfirmNameClicked);
     }
@@ -502,7 +551,6 @@ public class OpeningSceneController : MonoBehaviour
         isAskingName = true;
         nameConfirmed = false;
 
-        // Disable full-screen AdvanceTrigger while player interacts with the input field
         if (advanceButton != null)
         {
             advanceButton.gameObject.SetActive(false);
@@ -540,7 +588,7 @@ public class OpeningSceneController : MonoBehaviour
             namePromptCanvasGroup.blocksRaycasts = false;
         }
 
-        yield return StartCoroutine(FadeCanvasGroup(namePromptCanvasGroup, 1f, 0f, 0.6f, allowSkip: false));
+        yield return StartCoroutine(FadeCanvasGroup(namePromptCanvasGroup, 1f, 0f, 0.7f, allowSkip: false));
 
         isAskingName = false;
     }
@@ -548,18 +596,299 @@ public class OpeningSceneController : MonoBehaviour
     public void OnConfirmNameClicked()
     {
         if (!isAskingName || nameConfirmed) return;
+        StartCoroutine(ConfirmWithBloodSequence());
+    }
+
+    private IEnumerator ConfirmWithBloodSequence()
+    {
+        isAskingName = false;
 
         string enteredName = nameInputField != null ? nameInputField.text.Trim() : "";
         if (string.IsNullOrEmpty(enteredName))
         {
-            enteredName = "Protagonist";
+            enteredName = "Player";
+            if (nameInputField != null)
+            {
+                nameInputField.text = "Player";
+            }
         }
 
         PlayerPrefs.SetString(PLAYER_NAME_PREF_KEY, enteredName);
         PlayerPrefs.Save();
+        Debug.Log($"<color=red>[OpeningSceneController] Player name confirmed with blood: {enteredName}</color>");
 
-        Debug.Log($"<color=cyan>[OpeningSceneController] Player name set to: {enteredName}</color>");
+        if (nameInputField != null) nameInputField.interactable = false;
+        if (confirmNameButton != null) confirmNameButton.interactable = false;
+
+        yield return StartCoroutine(PlayConfirmButtonBloodAnimation());
+
         nameConfirmed = true;
+    }
+
+        private IEnumerator PlayConfirmButtonBloodAnimation()
+    {
+        if (confirmNameButton == null) yield break;
+
+        RectTransform btnRect = confirmNameButton.GetComponent<RectTransform>();
+        Vector2 origPos = btnRect.anchoredPosition;
+        TextMeshProUGUI btnText = confirmNameButton.GetComponentInChildren<TextMeshProUGUI>();
+
+        // 1. Play knife stab confirm audio
+        AudioClip eerieClip = Resources.Load<AudioClip>("knifestabfinal");
+        if (eerieClip == null) eerieClip = Resources.Load<AudioClip>("knifstabfinal");
+        if (eerieClip == null) eerieClip = Resources.Load<AudioClip>("blood_confirm_custom");
+        if (eerieClip == null) eerieClip = CreateEerieConfirmClip();
+        if (eerieClip != null)
+        {
+            AudioSource sfxSource = gameObject.AddComponent<AudioSource>();
+            sfxSource.spatialBlend = 0f;
+            sfxSource.volume = 1f * SettingsMenu.GlobalSoundVolume;
+            sfxSource.PlayOneShot(eerieClip);
+            Destroy(sfxSource, eerieClip.length + 0.5f);
+        }
+
+        Sprite bloodSlashSprite = LoadResourceSprite("blood_horizontal_slash");
+        if (bloodSlashSprite == null) bloodSlashSprite = LoadResourceSprite("blood_confirm_splatter");
+
+        // 2. Layer 1: Dark Coagulated Blood / Drop-Shadow (provides depth & contact shadow)
+        GameObject shadowObj = new GameObject("BloodShadowLayer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        shadowObj.transform.SetParent(confirmNameButton.transform, false);
+        shadowObj.transform.SetAsLastSibling();
+
+        RectTransform shadowRect = shadowObj.GetComponent<RectTransform>();
+        shadowRect.anchorMin = new Vector2(-0.25f, -0.68f);
+        shadowRect.anchorMax = new Vector2(1.25f, 1.42f);
+        shadowRect.offsetMin = Vector2.zero;
+        shadowRect.offsetMax = Vector2.zero;
+
+        Image shadowImg = shadowObj.GetComponent<Image>();
+        shadowImg.sprite = bloodSlashSprite;
+        shadowImg.type = Image.Type.Filled;
+        shadowImg.fillMethod = Image.FillMethod.Horizontal;
+        shadowImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+        shadowImg.fillAmount = 0f;
+        shadowImg.color = new Color(0.12f, 0.01f, 0.01f, 0.88f);
+        shadowImg.raycastTarget = false;
+
+        // 3. Layer 2: Main Rich Arterial Crimson Blood Slash (pure white tint preserves full glossy 3D artwork)
+        GameObject bloodOverlayObj = new GameObject("BloodArterialLayer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        bloodOverlayObj.transform.SetParent(confirmNameButton.transform, false);
+        bloodOverlayObj.transform.SetAsLastSibling();
+
+        RectTransform bloodRect = bloodOverlayObj.GetComponent<RectTransform>();
+        bloodRect.anchorMin = new Vector2(-0.25f, -0.65f);
+        bloodRect.anchorMax = new Vector2(1.25f, 1.45f);
+        bloodRect.offsetMin = Vector2.zero;
+        bloodRect.offsetMax = Vector2.zero;
+
+        Image bloodImg = bloodOverlayObj.GetComponent<Image>();
+        bloodImg.sprite = bloodSlashSprite;
+        bloodImg.type = Image.Type.Filled;
+        bloodImg.fillMethod = Image.FillMethod.Horizontal;
+        bloodImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+        bloodImg.fillAmount = 0f;
+        bloodImg.color = Color.white;
+        bloodImg.raycastTarget = false;
+
+        // 4. Layer 3: Wet Specular Gloss Gleam (dynamic liquid highlight across top of slash)
+        GameObject gleamObj = new GameObject("BloodGlossGleam", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        gleamObj.transform.SetParent(confirmNameButton.transform, false);
+        gleamObj.transform.SetAsLastSibling();
+
+        RectTransform gleamRect = gleamObj.GetComponent<RectTransform>();
+        gleamRect.anchorMin = new Vector2(-0.25f, -0.62f);
+        gleamRect.anchorMax = new Vector2(1.25f, 1.48f);
+        gleamRect.offsetMin = Vector2.zero;
+        gleamRect.offsetMax = Vector2.zero;
+
+        Image gleamImg = gleamObj.GetComponent<Image>();
+        gleamImg.sprite = bloodSlashSprite;
+        gleamImg.type = Image.Type.Filled;
+        gleamImg.fillMethod = Image.FillMethod.Horizontal;
+        gleamImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+        gleamImg.fillAmount = 0f;
+        gleamImg.color = new Color(1f, 0.35f, 0.35f, 0.45f);
+        gleamImg.raycastTarget = false;
+
+        // 5. Horizontal arterial spray droplets bursting outward
+        int dropCount = 16;
+        GameObject[] droplets = new GameObject[dropCount];
+        Vector2[] dropVelocities = new Vector2[dropCount];
+        RectTransform[] dropRects = new RectTransform[dropCount];
+        Sprite burstSprite = LoadResourceSprite("blood_burst");
+
+        for (int i = 0; i < dropCount; i++)
+        {
+            GameObject dropObj = new GameObject($"BloodDrop_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            dropObj.transform.SetParent(namePromptCanvasGroup.transform, false);
+            dropObj.transform.position = confirmNameButton.transform.position;
+
+            RectTransform dr = dropObj.GetComponent<RectTransform>();
+            float size = Random.Range(12f, 32f);
+            dr.sizeDelta = new Vector2(size, size);
+            dr.anchorMin = new Vector2(0.5f, 0.38f);
+            dr.anchorMax = new Vector2(0.5f, 0.38f);
+
+            float spawnX = Random.Range(-140f, 140f);
+            dr.anchoredPosition = btnRect.anchoredPosition + new Vector2(spawnX, Random.Range(-16f, 16f));
+
+            Image dImg = dropObj.GetComponent<Image>();
+            dImg.sprite = burstSprite;
+            dImg.color = new Color(Random.Range(0.65f, 0.95f), 0.02f, 0.02f, 0f);
+            dImg.raycastTarget = false;
+
+            float dirX = spawnX >= 0 ? 1f : -1f;
+            float speedX = Random.Range(220f, 600f) * dirX;
+            float speedY = Random.Range(-140f, 190f);
+            dropVelocities[i] = new Vector2(speedX, speedY);
+            dropRects[i] = dr;
+            droplets[i] = dropObj;
+        }
+
+        // 6. Fast razor-sharp horizontal blood strike wipe (0 to 0.22s)
+        float slashDuration = 0.22f;
+        float elapsed = 0f;
+
+        while (elapsed < slashDuration)
+        {
+            elapsed += Time.deltaTime;
+            float p = Mathf.Clamp01(elapsed / slashDuration);
+
+            float wipe = 1f - Mathf.Pow(1f - p, 3f);
+            shadowImg.fillAmount = Mathf.Clamp01(wipe * 1.05f);
+            bloodImg.fillAmount = wipe;
+            gleamImg.fillAmount = wipe;
+            gleamImg.color = new Color(1f, 0.35f, 0.35f, (1f - p) * 0.45f);
+
+            // Violent button shake
+            float trauma = (1f - p) * 14f;
+            btnRect.anchoredPosition = origPos + new Vector2(Random.Range(-trauma, trauma), Random.Range(-trauma * 0.35f, trauma * 0.35f));
+
+            // Cross out and blood-soak the Confirm text once the slash passes halfway
+            if (btnText != null && p >= 0.30f)
+            {
+                btnText.fontStyle = FontStyles.Strikethrough;
+                btnText.color = Color.Lerp(Color.white, new Color(0.85f, 0.08f, 0.08f, 1f), (p - 0.30f) / 0.70f);
+            }
+
+            // Spray droplets horizontally
+            for (int i = 0; i < dropCount; i++)
+            {
+                if (dropRects[i] != null)
+                {
+                    dropRects[i].anchoredPosition += dropVelocities[i] * Time.deltaTime;
+                    dropVelocities[i] *= Mathf.Exp(-6f * Time.deltaTime);
+                    Image dImg = droplets[i].GetComponent<Image>();
+                    if (dImg != null) dImg.color = new Color(dImg.color.r, 0.02f, 0.02f, Mathf.Clamp01(p / 0.15f));
+                }
+            }
+
+            yield return null;
+        }
+
+        btnRect.anchoredPosition = origPos;
+        shadowImg.fillAmount = 1f;
+        bloodImg.fillAmount = 1f;
+        gleamImg.fillAmount = 1f;
+        gleamImg.color = new Color(1f, 0.35f, 0.35f, 0f);
+
+        if (btnText != null)
+        {
+            btnText.fontStyle = FontStyles.Strikethrough;
+            btnText.color = new Color(0.85f, 0.08f, 0.08f, 1f);
+        }
+
+        // Settle droplets
+        float settleElapsed = 0f;
+        while (settleElapsed < 0.45f)
+        {
+            settleElapsed += Time.deltaTime;
+            for (int i = 0; i < dropCount; i++)
+            {
+                if (dropRects[i] != null)
+                {
+                    dropRects[i].anchoredPosition += dropVelocities[i] * Time.deltaTime;
+                    dropVelocities[i] *= Mathf.Exp(-8f * Time.deltaTime);
+                }
+            }
+            yield return null;
+        }
+
+        // Hold on the fully crossed-out bloody button while the eerie sound resonates
+        float holdDuration = eerieClip != null ? Mathf.Clamp(eerieClip.length - 0.40f, 0.65f, 2.5f) : 0.75f;
+        yield return new WaitForSeconds(holdDuration);
+    }
+
+    private static AudioClip CreateEerieConfirmClip()
+    {
+        int sampleRate = 44100;
+        float duration = 1.8f;
+        int sampleCount = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[sampleCount];
+        System.Random rnd = new System.Random(666);
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = i / (float)sampleRate;
+            float val = 0f;
+
+            // 1. Whispering reverse breath tension swell (0.0s to 0.10s)
+            if (t < 0.10f)
+            {
+                float st = t / 0.10f;
+                float swellEnv = st * st * 0.25f;
+                float white = (float)(rnd.NextDouble() * 2.0 - 1.0);
+                float hiss = white * swellEnv;
+                float whine = Mathf.Sin(2f * Mathf.PI * (500f + 700f * st) * t) * swellEnv * 0.35f;
+                val += hiss + whine;
+            }
+
+            // 2. Visceral Strike at t = 0.10s
+            if (t >= 0.10f)
+            {
+                float st = t - 0.10f;
+
+                // A. Sub-bass dread heartbeat thud (48Hz down to 24Hz)
+                float subFreq = 48f * Mathf.Exp(-st * 4f) + 24f;
+                float subEnv = Mathf.Exp(-st * 3.5f) * 0.85f;
+                float sub = Mathf.Sin(2f * Mathf.PI * subFreq * st) * subEnv;
+
+                // B. Crisp razor flesh slice / high-bite impact
+                float sliceEnv = Mathf.Exp(-st * 38f) * 0.90f;
+                float noise = (float)(rnd.NextDouble() * 2.0 - 1.0) * sliceEnv;
+                float blade = Mathf.Sin(2f * Mathf.PI * (1600f * Mathf.Exp(-st * 25f) + 120f) * st) * sliceEnv;
+
+                // C. Visceral organic blood squelch
+                float squelchEnv = Mathf.Exp(-st * 16f) * 0.60f;
+                float fm = Mathf.Sin(2f * Mathf.PI * 60f * st) * 300f;
+                float squelch = Mathf.Sin(2f * Mathf.PI * (420f + fm) * st) * squelchEnv;
+
+                // D. Haunting Tritone Chime / Bowed Waterphone Resonance (220 Hz + 311.13 Hz Eb + metallic overtones)
+                float bellEnv = Mathf.Exp(-st * 2.0f) * 0.50f;
+                float detune = Mathf.Sin(2f * Mathf.PI * 2.5f * st) * 2.5f;
+                float f1 = 220f + detune;
+                float f2 = 311.13f - detune; // Tritone
+                float f3 = 622.25f;          // Octave overtone
+                float f4 = 1244.5f;          // High metallic harmonics
+                float f5 = 2489f;
+
+                float bell = (
+                    Mathf.Sin(2f * Mathf.PI * f1 * st) * 0.45f +
+                    Mathf.Sin(2f * Mathf.PI * f2 * st) * 0.40f +
+                    Mathf.Sin(2f * Mathf.PI * f3 * st) * 0.22f +
+                    Mathf.Sin(2f * Mathf.PI * f4 * st) * 0.14f * Mathf.Exp(-st * 3.0f) +
+                    Mathf.Sin(2f * Mathf.PI * f5 * st) * 0.08f * Mathf.Exp(-st * 4.5f)
+                ) * bellEnv;
+
+                val += sub + noise + blade + squelch + bell;
+            }
+
+            samples[i] = Mathf.Clamp(val * 0.85f, -0.98f, 0.98f);
+        }
+
+        AudioClip clip = AudioClip.Create("EerieConfirmSFX", sampleCount, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
     }
 
     private void RedirectToSchoolScene()

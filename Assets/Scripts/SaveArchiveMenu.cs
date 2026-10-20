@@ -567,7 +567,7 @@ public class SaveArchiveMenu : MonoBehaviour
             string timestamp = System.DateTime.Now.ToString("yyyy.MM.dd  HH:mm");
             string activeScene = SceneManager.GetActiveScene().name;
 
-            string playerName = PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Protagonist");
+            string playerName = PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Player");
 
             PlayerPrefs.SetInt($"SaveSlot_{globalSlot}_Exists", 1);
             PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Title", saveTitle);
@@ -599,7 +599,7 @@ public class SaveArchiveMenu : MonoBehaviour
             string targetScene = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_Scene", "SchoolScene");
             int savedLineIdx = PlayerPrefs.GetInt($"SaveSlot_{globalSlot}_LineIndex", 0);
             string savedPlayerName = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_PlayerName",
-                PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Protagonist"));
+                PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Player"));
 
             // Save selected progress to PlayerPrefs
             PlayerPrefs.SetInt(PREF_SELECTED_SLOT, globalSlot);

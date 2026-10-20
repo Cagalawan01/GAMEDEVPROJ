@@ -1060,8 +1060,8 @@ public class SchoolPrologueController : MonoBehaviour
 
     private string GetPlayerName()
     {
-        string savedName = PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Protagonist");
-        return string.IsNullOrWhiteSpace(savedName) ? "Protagonist" : savedName.Trim();
+        string savedName = PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Player");
+        return string.IsNullOrWhiteSpace(savedName) ? "Player" : savedName.Trim();
     }
 
     private string FormatWithPlayerName(string text)
@@ -1074,7 +1074,7 @@ public class SchoolPrologueController : MonoBehaviour
     private void ShowLine(int index)
     {
         string speaker = (index >= 0 && index < speakerNames.Length) ? speakerNames[index] : "YOU";
-        if (speaker == "YOU" || speaker == "You" || speaker == "Protagonist" || speaker == "{PlayerName}")
+        if (speaker == "YOU" || speaker == "You" || speaker == "Player" || speaker == "Protagonist" || speaker == "{PlayerName}")
         {
             speaker = GetPlayerName();
         }
