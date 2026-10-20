@@ -21,6 +21,8 @@ public class SchoolPrologueController : MonoBehaviour
 
     [Header("Interactive Items")]
     [SerializeField] private Button memorialPosterButton;
+    [SerializeField] private Button noticeBoardButton;
+    [SerializeField] private Button tarpLanternsButton;
     [SerializeField] private CanvasGroup memorialInspectCanvasGroup;
     [SerializeField] private Button closeInspectButton;
 
@@ -30,6 +32,7 @@ public class SchoolPrologueController : MonoBehaviour
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private AudioClip textBeepClip;
     [SerializeField] private AudioClip clickClip;
+    [SerializeField] private AudioClip hoverClip;
 
     [Header("Typewriter Settings")]
     [SerializeField] private float typingSpeed = 0.035f;
@@ -231,12 +234,67 @@ public class SchoolPrologueController : MonoBehaviour
     private const string MEMORIAL_INSPECT_DIALOGUE =
         "\"Elara Veyne. 18. Forever the brightest person in every room.\" Someone has drawn a small blue flower in the corner, in pen.";
 
+    private const string NOTICE_BOARD_INSPECT_DIALOGUE =
+        "A rain-stained flyer for last year's winter festival is still pinned there. Most of the program has run in the weather, and only the words \"Lantern Walk\" can still be read.";
+
+    private const string TARP_LANTERNS_INSPECT_DIALOGUE =
+        "Festival lanterns still sit under a tarp, a year later. Nobody had the heart to throw them out.";
+
+    private string currentInspectionLine = "";
+    private float inspectDialogueFinishedTime = -1f;
+
+    private static readonly Color INSPECT_BACKDROP_COLOR = new Color(0.02f, 0.04f, 0.08f, 0.60f);
+
+    public void PlayHoverSound()
+    {
+        if (hoverClip != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(hoverClip, SettingsMenu.GlobalSoundVolume * 0.7f);
+        }
+    }
+
+    public bool IsInspectOrPopupOpen()
+    {
+        if (isInspectingMemorial) return true;
+        if (saveArchiveMenu != null && saveArchiveMenu.IsOpen) return true;
+        if (settingsMenu != null && settingsMenu.gameObject.activeInHierarchy)
+        {
+            CanvasGroup cg = settingsMenu.GetComponent<CanvasGroup>();
+            if (cg == null || cg.alpha > 0.05f) return true;
+        }
+        return false;
+    }
+
+    public bool CanHighlightItems()
+    {
+        if (!isFreeView) return false;
+        if (isInspectingMemorial) return false;
+        if (isTyping) return false;
+        if (dialoguePanel != null && dialoguePanel.activeSelf) return false;
+        if (IsPopupOpen()) return false;
+        return true;
+    }
+
+    public bool CanInteractWithWorldItems()
+    {
+        if (!isFreeView) return false;
+        if (isInspectingMemorial) return false;
+        if (isTyping) return false;
+        if (dialoguePanel != null && dialoguePanel.activeSelf) return false;
+        if (IsPopupOpen()) return false;
+        return true;
+    }
+
     private void EnsureMemorialPosterUI()
     {
         Sprite memorialSprite = LoadResourceSprite("memorial_poster");
+        Sprite noticeBoardSprite = LoadResourceSprite("notice_board");
+        Sprite noticeBoardWorldSprite = LoadResourceSprite("notice_board_world");
+        if (noticeBoardWorldSprite == null) noticeBoardWorldSprite = noticeBoardSprite;
+        Sprite tarpLanternsSprite = LoadResourceSprite("tarp_lanterns");
         Sprite haloSprite = LoadResourceSprite("inspect_halo_glow");
 
-        // 1. World-space clickable Memorial Poster beside the gate
+        // 1. World-space clickable Memorial Poster beside the right side of the gate
         if (memorialPosterButton == null)
         {
             Transform existingPosterTf = transform.Find("MemorialPosterObject");
@@ -248,7 +306,7 @@ public class SchoolPrologueController : MonoBehaviour
 
         if (memorialPosterButton == null)
         {
-            GameObject posterObj = new GameObject("MemorialPosterObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            GameObject posterObj = new GameObject("MemorialPosterObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(InteractableItemHighlight));
             posterObj.transform.SetParent(transform, false);
 
             // Place above AdvanceTrigger but behind DialogueBox & popups
@@ -275,20 +333,29 @@ public class SchoolPrologueController : MonoBehaviour
             memorialPosterButton.targetGraphic = posterImg;
             ColorBlock cb = memorialPosterButton.colors;
             cb.normalColor = Color.white;
-            cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+            cb.highlightedColor = Color.white;
             cb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
             cb.selectedColor = Color.white;
+            cb.disabledColor = Color.white;
             memorialPosterButton.colors = cb;
+
+            InteractableItemHighlight hl = posterObj.GetComponent<InteractableItemHighlight>();
+            if (hl != null) hl.EnsureOverlay();
         }
         else
         {
             Image posterImg = memorialPosterButton.GetComponent<Image>();
-            if (posterImg != null && memorialSprite != null)
+            if (posterImg != null)
             {
-                posterImg.sprite = memorialSprite;
+                if (memorialSprite != null) posterImg.sprite = memorialSprite;
                 posterImg.preserveAspect = true;
                 posterImg.color = Color.white;
+                posterImg.raycastTarget = true;
             }
+
+            InteractableItemHighlight hl = memorialPosterButton.GetComponent<InteractableItemHighlight>();
+            if (hl == null) hl = memorialPosterButton.gameObject.AddComponent<InteractableItemHighlight>();
+            hl.EnsureOverlay();
         }
 
         if (memorialPosterButton != null)
@@ -297,7 +364,181 @@ public class SchoolPrologueController : MonoBehaviour
             memorialPosterButton.onClick.AddListener(OnMemorialPosterClicked);
         }
 
-        // 2. Center Inspection Modal when the player interacts with the Memorial Poster
+        // 1b. World-space clickable Notice Board on the left side of the gate
+        if (noticeBoardButton == null)
+        {
+            Transform existingBoardTf = transform.Find("NoticeBoardObject");
+            if (existingBoardTf != null)
+            {
+                noticeBoardButton = existingBoardTf.GetComponent<Button>();
+            }
+        }
+
+        if (noticeBoardButton == null)
+        {
+            GameObject boardObj = new GameObject("NoticeBoardObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(InteractableItemHighlight));
+            boardObj.transform.SetParent(transform, false);
+
+            // Place right next to MemorialPosterObject (above AdvanceTrigger, behind MemorialInspectModal & DialogueBox)
+            if (memorialPosterButton != null)
+            {
+                boardObj.transform.SetSiblingIndex(memorialPosterButton.transform.GetSiblingIndex() + 1);
+            }
+            else
+            {
+                Transform advTf = transform.Find("AdvanceTrigger");
+                if (advTf != null)
+                {
+                    boardObj.transform.SetSiblingIndex(advTf.GetSiblingIndex() + 1);
+                }
+            }
+
+            RectTransform boardRect = boardObj.GetComponent<RectTransform>();
+            boardRect.anchorMin = new Vector2(0.5342f, 0.3503f);
+            boardRect.anchorMax = new Vector2(0.5908f, 0.4635f);
+            boardRect.offsetMin = Vector2.zero;
+            boardRect.offsetMax = Vector2.zero;
+
+            Image boardImg = boardObj.GetComponent<Image>();
+            boardImg.sprite = noticeBoardWorldSprite;
+            boardImg.type = Image.Type.Simple;
+            boardImg.preserveAspect = false;
+            boardImg.color = Color.white;
+            boardImg.raycastTarget = true;
+
+            noticeBoardButton = boardObj.GetComponent<Button>();
+            noticeBoardButton.targetGraphic = boardImg;
+            ColorBlock ncb = noticeBoardButton.colors;
+            ncb.normalColor = Color.white;
+            ncb.highlightedColor = Color.white;
+            ncb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+            ncb.selectedColor = Color.white;
+            ncb.disabledColor = Color.white;
+            noticeBoardButton.colors = ncb;
+
+            InteractableItemHighlight hl = boardObj.GetComponent<InteractableItemHighlight>();
+            if (hl != null) hl.EnsureOverlay();
+        }
+        else
+        {
+            RectTransform boardRect = noticeBoardButton.GetComponent<RectTransform>();
+            if (boardRect != null)
+            {
+                boardRect.anchorMin = new Vector2(0.5342f, 0.3503f);
+                boardRect.anchorMax = new Vector2(0.5908f, 0.4635f);
+                boardRect.offsetMin = Vector2.zero;
+                boardRect.offsetMax = Vector2.zero;
+            }
+
+            Image boardImg = noticeBoardButton.GetComponent<Image>();
+            if (boardImg != null && noticeBoardWorldSprite != null)
+            {
+                boardImg.sprite = noticeBoardWorldSprite;
+                boardImg.preserveAspect = false;
+                boardImg.color = Color.white;
+            }
+
+            InteractableItemHighlight hl = noticeBoardButton.GetComponent<InteractableItemHighlight>();
+            if (hl == null) hl = noticeBoardButton.gameObject.AddComponent<InteractableItemHighlight>();
+            hl.EnsureOverlay();
+        }
+
+        if (noticeBoardButton != null)
+        {
+            noticeBoardButton.onClick.RemoveAllListeners();
+            noticeBoardButton.onClick.AddListener(OnNoticeBoardClicked);
+        }
+
+        // 1c. World-space clickable Tarp Lanterns on the roadside in front of the retaining wall on the left
+        if (tarpLanternsButton == null)
+        {
+            Transform existingTarpTf = transform.Find("TarpLanternsObject");
+            if (existingTarpTf != null)
+            {
+                tarpLanternsButton = existingTarpTf.GetComponent<Button>();
+            }
+        }
+
+        if (tarpLanternsButton == null)
+        {
+            GameObject tarpObj = new GameObject("TarpLanternsObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(InteractableItemHighlight));
+            tarpObj.transform.SetParent(transform, false);
+
+            if (noticeBoardButton != null)
+            {
+                tarpObj.transform.SetSiblingIndex(noticeBoardButton.transform.GetSiblingIndex() + 1);
+            }
+            else if (memorialPosterButton != null)
+            {
+                tarpObj.transform.SetSiblingIndex(memorialPosterButton.transform.GetSiblingIndex() + 1);
+            }
+            else
+            {
+                Transform advTf = transform.Find("AdvanceTrigger");
+                if (advTf != null)
+                {
+                    tarpObj.transform.SetSiblingIndex(advTf.GetSiblingIndex() + 1);
+                }
+            }
+
+            RectTransform tarpRect = tarpObj.GetComponent<RectTransform>();
+            tarpRect.anchorMin = new Vector2(0.451f, 0.237f);
+            tarpRect.anchorMax = new Vector2(0.573f, 0.405f);
+            tarpRect.offsetMin = new Vector2(-27f, -44.7f);
+            tarpRect.offsetMax = new Vector2(-27f, -44.7f);
+
+            Image tarpImg = tarpObj.GetComponent<Image>();
+            tarpImg.sprite = tarpLanternsSprite;
+            tarpImg.type = Image.Type.Simple;
+            tarpImg.preserveAspect = true;
+            tarpImg.color = Color.white;
+            tarpImg.raycastTarget = true;
+
+            tarpLanternsButton = tarpObj.GetComponent<Button>();
+            tarpLanternsButton.targetGraphic = tarpImg;
+            ColorBlock tcb = tarpLanternsButton.colors;
+            tcb.normalColor = Color.white;
+            tcb.highlightedColor = Color.white;
+            tcb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+            tcb.selectedColor = Color.white;
+            tcb.disabledColor = Color.white;
+            tarpLanternsButton.colors = tcb;
+
+            InteractableItemHighlight hl = tarpObj.GetComponent<InteractableItemHighlight>();
+            if (hl != null) hl.EnsureOverlay();
+        }
+        else
+        {
+            RectTransform tarpRect = tarpLanternsButton.GetComponent<RectTransform>();
+            if (tarpRect != null)
+            {
+                tarpRect.anchorMin = new Vector2(0.451f, 0.237f);
+                tarpRect.anchorMax = new Vector2(0.573f, 0.405f);
+                tarpRect.offsetMin = new Vector2(-27f, -44.7f);
+            tarpRect.offsetMax = new Vector2(-27f, -44.7f);
+            }
+
+            Image tarpImg = tarpLanternsButton.GetComponent<Image>();
+            if (tarpImg != null)
+            {
+                if (tarpLanternsSprite != null) tarpImg.sprite = tarpLanternsSprite;
+                tarpImg.preserveAspect = true;
+                tarpImg.color = Color.white;
+                tarpImg.raycastTarget = true;
+            }
+
+            InteractableItemHighlight hl = tarpLanternsButton.GetComponent<InteractableItemHighlight>();
+            if (hl == null) hl = tarpLanternsButton.gameObject.AddComponent<InteractableItemHighlight>();
+            hl.EnsureOverlay();
+        }
+
+        if (tarpLanternsButton != null)
+        {
+            tarpLanternsButton.onClick.RemoveAllListeners();
+            tarpLanternsButton.onClick.AddListener(OnTarpLanternsClicked);
+        }
+
+        // 2. Center Inspection Modal when the player interacts with an item
         if (memorialInspectCanvasGroup == null)
         {
             Transform existingModalTf = transform.Find("MemorialInspectModal");
@@ -313,7 +554,7 @@ public class SchoolPrologueController : MonoBehaviour
             GameObject modalObj = new GameObject("MemorialInspectModal", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(CanvasGroup));
             modalObj.transform.SetParent(transform, false);
 
-            // Place BEFORE DialogueBox so DialogueBox is never blocked or covered by the preview UI
+            // Place BEFORE DialogueBox so the background fades while DialogueBox remains unblocked on top
             if (dialoguePanel != null)
             {
                 modalObj.transform.SetSiblingIndex(dialoguePanel.transform.GetSiblingIndex());
@@ -325,9 +566,9 @@ public class SchoolPrologueController : MonoBehaviour
             modalRect.offsetMin = Vector2.zero;
             modalRect.offsetMax = Vector2.zero;
 
-            // Subtle transparent click-catcher (does not darken or block the scene / dialogue box)
+            // Faded backdrop so the background dims slightly and the player can focus on the inspected item
             Image backdropImg = modalObj.GetComponent<Image>();
-            backdropImg.color = new Color(0f, 0f, 0f, 0.04f);
+            backdropImg.color = INSPECT_BACKDROP_COLOR;
             backdropImg.raycastTarget = true;
 
             closeInspectButton = modalObj.GetComponent<Button>();
@@ -344,19 +585,19 @@ public class SchoolPrologueController : MonoBehaviour
                 GameObject haloObj = new GameObject("InspectHaloGlow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 haloObj.transform.SetParent(modalObj.transform, false);
                 RectTransform haloRect = haloObj.GetComponent<RectTransform>();
-                haloRect.anchorMin = new Vector2(0.27f, 0.28f);
-                haloRect.anchorMax = new Vector2(0.73f, 0.99f);
+                haloRect.anchorMin = new Vector2(0.24f, 0.25f);
+                haloRect.anchorMax = new Vector2(0.76f, 0.99f);
                 haloRect.offsetMin = Vector2.zero;
                 haloRect.offsetMax = Vector2.zero;
 
                 Image haloImg = haloObj.GetComponent<Image>();
                 haloImg.sprite = haloSprite;
                 haloImg.preserveAspect = true;
-                haloImg.color = new Color(1f, 0.98f, 0.96f, 0.85f);
+                haloImg.color = new Color(1f, 0.98f, 0.96f, 0.88f);
                 haloImg.raycastTarget = false;
             }
 
-            // Centered enlarged Memorial Poster in the middle above DialogueBox (y: 0.305 to 0.965)
+            // Centered enlarged Item Preview in the middle above DialogueBox (y: 0.305 to 0.965)
             GameObject centerImgObj = new GameObject("MemorialInspectImage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             centerImgObj.transform.SetParent(modalObj.transform, false);
             RectTransform centerRect = centerImgObj.GetComponent<RectTransform>();
@@ -376,7 +617,7 @@ public class SchoolPrologueController : MonoBehaviour
         }
         else
         {
-            // Ensure existing modal stays behind DialogueBox and uses the updated layout & sprite
+            // Ensure existing modal stays behind DialogueBox and uses the updated faded backdrop & layout
             if (dialoguePanel != null && memorialInspectCanvasGroup.transform.GetSiblingIndex() > dialoguePanel.transform.GetSiblingIndex())
             {
                 memorialInspectCanvasGroup.transform.SetSiblingIndex(dialoguePanel.transform.GetSiblingIndex());
@@ -385,7 +626,7 @@ public class SchoolPrologueController : MonoBehaviour
             Image backdropImg = memorialInspectCanvasGroup.GetComponent<Image>();
             if (backdropImg != null)
             {
-                backdropImg.color = new Color(0f, 0f, 0f, 0.04f);
+                backdropImg.color = INSPECT_BACKDROP_COLOR;
             }
 
             Transform oldHintTf = memorialInspectCanvasGroup.transform.Find("InspectHintText");
@@ -405,14 +646,6 @@ public class SchoolPrologueController : MonoBehaviour
                     centerRect.offsetMin = Vector2.zero;
                     centerRect.offsetMax = Vector2.zero;
                 }
-
-                Image centerImg = centerImgTf.GetComponent<Image>();
-                if (centerImg != null && memorialSprite != null)
-                {
-                    centerImg.sprite = memorialSprite;
-                    centerImg.preserveAspect = true;
-                    centerImg.color = Color.white;
-                }
             }
         }
 
@@ -425,7 +658,49 @@ public class SchoolPrologueController : MonoBehaviour
 
     public void OnMemorialPosterClicked()
     {
-        if (IsPopupOpen()) return;
+        if (!CanInteractWithWorldItems())
+        {
+            if (!isInspectingMemorial && !IsPopupOpen() && !isFreeView)
+            {
+                OnNextClicked();
+            }
+            return;
+        }
+        Sprite memorialSprite = LoadResourceSprite("memorial_poster");
+        InspectItem(memorialSprite, MEMORIAL_INSPECT_DIALOGUE);
+    }
+
+    public void OnNoticeBoardClicked()
+    {
+        if (!CanInteractWithWorldItems())
+        {
+            if (!isInspectingMemorial && !IsPopupOpen() && !isFreeView)
+            {
+                OnNextClicked();
+            }
+            return;
+        }
+        Sprite noticeBoardSprite = LoadResourceSprite("notice_board");
+        InspectItem(noticeBoardSprite, NOTICE_BOARD_INSPECT_DIALOGUE);
+    }
+
+    public void OnTarpLanternsClicked()
+    {
+        if (!CanInteractWithWorldItems())
+        {
+            if (!isInspectingMemorial && !IsPopupOpen() && !isFreeView)
+            {
+                OnNextClicked();
+            }
+            return;
+        }
+        Sprite tarpLanternsSprite = LoadResourceSprite("tarp_lanterns");
+        InspectItem(tarpLanternsSprite, TARP_LANTERNS_INSPECT_DIALOGUE);
+    }
+
+    private void InspectItem(Sprite itemSprite, string dialogueLine)
+    {
+        if (IsPopupOpen() || !isFreeView) return;
 
         if (clickClip != null && audioSource != null)
         {
@@ -434,6 +709,20 @@ public class SchoolPrologueController : MonoBehaviour
 
         EnsureMemorialPosterUI();
         if (memorialInspectCanvasGroup == null) return;
+
+        currentInspectionLine = dialogueLine;
+
+        Transform centerImgTf = memorialInspectCanvasGroup.transform.Find("MemorialInspectImage");
+        if (centerImgTf != null)
+        {
+            Image centerImg = centerImgTf.GetComponent<Image>();
+            if (centerImg != null && itemSprite != null)
+            {
+                centerImg.sprite = itemSprite;
+                centerImg.preserveAspect = true;
+                centerImg.color = Color.white;
+            }
+        }
 
         isInspectingMemorial = true;
         memorialInspectCanvasGroup.gameObject.SetActive(true);
@@ -444,11 +733,13 @@ public class SchoolPrologueController : MonoBehaviour
         inspectFadeCoroutine = StartCoroutine(FadeInspectModalRoutine(memorialInspectCanvasGroup.alpha, 1f, 0.22f, false));
 
         // Pop up DialogueBox with the player's inspection line
-        ShowMemorialInspectionDialogue();
+        ShowInspectionDialogue(dialogueLine);
     }
 
-    private void ShowMemorialInspectionDialogue()
+    private void ShowInspectionDialogue(string dialogueLine)
     {
+        inspectDialogueFinishedTime = -1f;
+
         if (dialogueFadeCoroutine != null)
         {
             StopCoroutine(dialogueFadeCoroutine);
@@ -477,24 +768,41 @@ public class SchoolPrologueController : MonoBehaviour
         }
 
         if (typingCoroutine != null) StopCoroutine(typingCoroutine);
-        typingCoroutine = StartCoroutine(TypeLineRoutine(MEMORIAL_INSPECT_DIALOGUE));
+        typingCoroutine = StartCoroutine(TypeLineRoutine(dialogueLine));
     }
 
     public void CloseMemorialInspect()
     {
         if (!isInspectingMemorial) return;
 
+        // Gotta finish the dialogue first before closing: reveal full text on first click
+        if (isTyping)
+        {
+            if (typingCoroutine != null)
+            {
+                StopCoroutine(typingCoroutine);
+                typingCoroutine = null;
+            }
+            isTyping = false;
+            if (dialogueText != null && !string.IsNullOrEmpty(currentInspectionLine))
+            {
+                dialogueText.text = currentInspectionLine;
+            }
+            inspectDialogueFinishedTime = Time.unscaledTime;
+            return;
+        }
+
+        // Prevent accidental closing within a brief grace period (0.35s) after text completes,
+        // guaranteeing the dialogue must be finished first before the player can close it
+        if (inspectDialogueFinishedTime > 0f && Time.unscaledTime - inspectDialogueFinishedTime < 0.35f)
+        {
+            return;
+        }
+
         if (clickClip != null && audioSource != null)
         {
             audioSource.PlayOneShot(clickClip, SettingsMenu.GlobalSoundVolume);
         }
-
-        if (typingCoroutine != null)
-        {
-            StopCoroutine(typingCoroutine);
-            typingCoroutine = null;
-        }
-        isTyping = false;
 
         isInspectingMemorial = false;
         isFreeView = true;
@@ -621,6 +929,7 @@ public class SchoolPrologueController : MonoBehaviour
 
     private void Update()
     {
+
         if (isInspectingMemorial)
         {
             bool closeKey = false;
@@ -674,6 +983,12 @@ public class SchoolPrologueController : MonoBehaviour
 
     public void OnNextClicked()
     {
+        if (isInspectingMemorial)
+        {
+            CloseMemorialInspect();
+            return;
+        }
+
         if (isFreeView || IsPopupOpen())
         {
             return;
@@ -793,6 +1108,10 @@ public class SchoolPrologueController : MonoBehaviour
 
         isTyping = false;
         typingCoroutine = null;
+        if (isInspectingMemorial)
+        {
+            inspectDialogueFinishedTime = Time.unscaledTime;
+        }
     }
 
     public void OnSettingsButtonClicked()

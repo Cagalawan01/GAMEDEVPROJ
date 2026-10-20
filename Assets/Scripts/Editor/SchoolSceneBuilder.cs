@@ -13,7 +13,7 @@ public static class SchoolSceneBuilder
 {
     private const string SCENE_PATH = "Assets/Scenes/SchoolScene.unity";
     private const string MENU_SCENE_PATH = "Assets/Scenes/MenuScreen.unity";
-    private const string SESSION_BUILD_KEY = "SchoolScene_Built_V12";
+    private const string SESSION_BUILD_KEY = "SchoolScene_Built_V22";
 
     static SchoolSceneBuilder()
     {
@@ -99,6 +99,10 @@ public static class SchoolSceneBuilder
         Sprite speakerPlateSprite = LoadOrImportSprite("Assets/Resources/vn_speaker_plate.png", "Assets/Art/vn_speaker_plate.png");
         Sprite gearIconSprite = LoadOrImportSprite("Assets/Resources/settings_gear_icon.png", "Assets/Art/settings_gear_icon.png");
         Sprite memorialSprite = LoadOrImportSprite("Assets/Resources/memorial_poster.png", "Assets/Art/memorial_poster.png");
+        Sprite noticeBoardSprite = LoadOrImportSprite("Assets/Resources/notice_board.png", "Assets/Art/notice_board.png");
+        Sprite noticeBoardWorldSprite = LoadOrImportSprite("Assets/Resources/notice_board_world.png", "Assets/Art/notice_board_world.png");
+        if (noticeBoardWorldSprite == null) noticeBoardWorldSprite = noticeBoardSprite;
+        Sprite tarpLanternsSprite = LoadOrImportSprite("Assets/Resources/tarp_lanterns.png", "Assets/Art/tarp_lanterns.png");
         Sprite haloSprite = LoadOrImportSprite("Assets/Resources/inspect_halo_glow.png");
 
         TMP_FontAsset defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
@@ -197,7 +201,7 @@ public static class SchoolSceneBuilder
         }
 
         // 7. Clickable Memorial Poster beside the right side of the School Gate
-        GameObject memorialPosterObj = new GameObject("MemorialPosterObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        GameObject memorialPosterObj = new GameObject("MemorialPosterObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(InteractableItemHighlight));
         memorialPosterObj.transform.SetParent(canvasObj.transform, false);
         RectTransform memorialRect = memorialPosterObj.GetComponent<RectTransform>();
         memorialRect.anchorMin = new Vector2(0.708f, 0.242f);
@@ -206,6 +210,7 @@ public static class SchoolSceneBuilder
         memorialRect.offsetMax = Vector2.zero;
 
         Image memorialImg = memorialPosterObj.GetComponent<Image>();
+        memorialSprite = LoadOrImportSprite("Assets/Resources/memorial_poster.png", "Assets/Art/memorial_poster.png");
         memorialImg.sprite = memorialSprite;
         memorialImg.type = Image.Type.Simple;
         memorialImg.preserveAspect = true;
@@ -216,12 +221,74 @@ public static class SchoolSceneBuilder
         memorialBtn.targetGraphic = memorialImg;
         ColorBlock mcb = memorialBtn.colors;
         mcb.normalColor = Color.white;
-        mcb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+        mcb.highlightedColor = Color.white;
         mcb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
         mcb.selectedColor = Color.white;
+        mcb.disabledColor = Color.white;
         memorialBtn.colors = mcb;
 
-        // 8. Center Inspection Modal when the player interacts with the Memorial Poster (placed BEFORE DialogueBox so it never blocks DialogueBox)
+        InteractableItemHighlight mhl = memorialPosterObj.GetComponent<InteractableItemHighlight>();
+        if (mhl != null) mhl.EnsureOverlay();
+
+        // 7b. Clickable Notice Board beside the left side of the School Gate
+        GameObject noticeBoardObj = new GameObject("NoticeBoardObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(InteractableItemHighlight));
+        noticeBoardObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform noticeBoardRect = noticeBoardObj.GetComponent<RectTransform>();
+        noticeBoardRect.anchorMin = new Vector2(0.5342f, 0.3503f);
+        noticeBoardRect.anchorMax = new Vector2(0.5908f, 0.4635f);
+        noticeBoardRect.offsetMin = Vector2.zero;
+        noticeBoardRect.offsetMax = Vector2.zero;
+
+        Image noticeBoardImg = noticeBoardObj.GetComponent<Image>();
+        noticeBoardImg.sprite = noticeBoardWorldSprite;
+        noticeBoardImg.type = Image.Type.Simple;
+        noticeBoardImg.preserveAspect = false;
+        noticeBoardImg.color = Color.white;
+        noticeBoardImg.raycastTarget = true;
+
+        Button noticeBoardBtn = noticeBoardObj.GetComponent<Button>();
+        noticeBoardBtn.targetGraphic = noticeBoardImg;
+        ColorBlock ncb = noticeBoardBtn.colors;
+        ncb.normalColor = Color.white;
+        ncb.highlightedColor = Color.white;
+        ncb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+        ncb.selectedColor = Color.white;
+        ncb.disabledColor = Color.white;
+        noticeBoardBtn.colors = ncb;
+
+        InteractableItemHighlight nhl = noticeBoardObj.GetComponent<InteractableItemHighlight>();
+        if (nhl != null) nhl.EnsureOverlay();
+
+        // 7c. Clickable Tarp Lanterns in front of retaining wall on the left
+        GameObject tarpLanternsObj = new GameObject("TarpLanternsObject", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(InteractableItemHighlight));
+        tarpLanternsObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform tarpLanternsRect = tarpLanternsObj.GetComponent<RectTransform>();
+        tarpLanternsRect.anchorMin = new Vector2(0.451f, 0.237f);
+        tarpLanternsRect.anchorMax = new Vector2(0.573f, 0.405f);
+        tarpLanternsRect.offsetMin = new Vector2(-27f, -44.7f);
+        tarpLanternsRect.offsetMax = new Vector2(-27f, -44.7f);
+
+        Image tarpLanternsImg = tarpLanternsObj.GetComponent<Image>();
+        tarpLanternsImg.sprite = tarpLanternsSprite;
+        tarpLanternsImg.type = Image.Type.Simple;
+        tarpLanternsImg.preserveAspect = true;
+        tarpLanternsImg.color = Color.white;
+        tarpLanternsImg.raycastTarget = true;
+
+        Button tarpLanternsBtn = tarpLanternsObj.GetComponent<Button>();
+        tarpLanternsBtn.targetGraphic = tarpLanternsImg;
+        ColorBlock tcb = tarpLanternsBtn.colors;
+        tcb.normalColor = Color.white;
+        tcb.highlightedColor = Color.white;
+        tcb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+        tcb.selectedColor = Color.white;
+        tcb.disabledColor = Color.white;
+        tarpLanternsBtn.colors = tcb;
+
+        InteractableItemHighlight thl = tarpLanternsObj.GetComponent<InteractableItemHighlight>();
+        if (thl != null) thl.EnsureOverlay();
+
+        // 8. Center Inspection Modal when the player interacts with an item (placed BEFORE DialogueBox so it fades the background without blocking DialogueBox)
         GameObject inspectModalObj = new GameObject("MemorialInspectModal", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(CanvasGroup));
         inspectModalObj.transform.SetParent(canvasObj.transform, false);
         RectTransform inspectModalRect = inspectModalObj.GetComponent<RectTransform>();
@@ -231,7 +298,7 @@ public static class SchoolSceneBuilder
         inspectModalRect.offsetMax = Vector2.zero;
 
         Image inspectBackdropImg = inspectModalObj.GetComponent<Image>();
-        inspectBackdropImg.color = new Color(0f, 0f, 0f, 0.04f);
+        inspectBackdropImg.color = new Color(0.02f, 0.04f, 0.08f, 0.60f);
         inspectBackdropImg.raycastTarget = true;
 
         Button closeInspectBtn = inspectModalObj.GetComponent<Button>();
@@ -445,6 +512,8 @@ public static class SchoolSceneBuilder
         ctrlAudio.playOnAwake = false;
 
         UnityEventTools.AddPersistentListener(memorialBtn.onClick, controller.OnMemorialPosterClicked);
+        UnityEventTools.AddPersistentListener(noticeBoardBtn.onClick, controller.OnNoticeBoardClicked);
+        UnityEventTools.AddPersistentListener(tarpLanternsBtn.onClick, controller.OnTarpLanternsClicked);
         UnityEventTools.AddPersistentListener(closeInspectBtn.onClick, controller.CloseMemorialInspect);
 
         SerializedObject so = new SerializedObject(controller);
@@ -459,12 +528,15 @@ public static class SchoolSceneBuilder
         so.FindProperty("settingsMenu").objectReferenceValue = settingsMenu;
         so.FindProperty("saveArchiveMenu").objectReferenceValue = saveArchiveMenu;
         so.FindProperty("memorialPosterButton").objectReferenceValue = memorialBtn;
+        so.FindProperty("noticeBoardButton").objectReferenceValue = noticeBoardBtn;
+        so.FindProperty("tarpLanternsButton").objectReferenceValue = tarpLanternsBtn;
         so.FindProperty("memorialInspectCanvasGroup").objectReferenceValue = inspectModalCg;
         so.FindProperty("closeInspectButton").objectReferenceValue = closeInspectBtn;
         so.FindProperty("schoolBgmSource").objectReferenceValue = bgmSource;
         so.FindProperty("schoolBgmClip").objectReferenceValue = darkMelodyClip;
         so.FindProperty("audioSource").objectReferenceValue = ctrlAudio;
         so.FindProperty("clickClip").objectReferenceValue = clickClip;
+        so.FindProperty("hoverClip").objectReferenceValue = hoverClip;
         so.ApplyModifiedProperties();
 
         // 14. Save SchoolScene
@@ -810,7 +882,7 @@ public static class SchoolSceneBuilder
         }
 
         // Remove any leftover legacy "Button" Text objects in MenuScreen
-        Text[] legacyTexts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Text[] legacyTexts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include);
         foreach (Text t in legacyTexts)
         {
             if (t != null && (t.text == "Button" || t.gameObject.name.Contains("Text (Legacy)")))
