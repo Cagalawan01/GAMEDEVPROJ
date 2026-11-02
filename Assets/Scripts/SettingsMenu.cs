@@ -10,6 +10,9 @@ public class SettingsMenu : MonoBehaviour
     [SerializeField] private AudioSource bgmAudioSource;
     [SerializeField] private Slider bgmSlider;
     [SerializeField] private TextMeshProUGUI volumePercentText;
+    [SerializeField] private Button bgmMuteButton;
+    [SerializeField] private Button bgm50Button;
+    [SerializeField] private Button bgm100Button;
 
     [Header("Sound Volume Settings")]
     [SerializeField] private AudioSource soundAudioSource;
@@ -25,6 +28,7 @@ public class SettingsMenu : MonoBehaviour
     [Header("In-Game Action Buttons (Optional)")]
     [SerializeField] private Button saveProgressButton;
     [SerializeField] private Button returnToMenuButton;
+    [SerializeField] private Button resumeButton;
     [SerializeField] private SaveArchiveMenu saveArchiveMenu;
 
     [Header("UI Panels")]
@@ -70,6 +74,12 @@ public class SettingsMenu : MonoBehaviour
         {
             returnToMenuButton.onClick.RemoveListener(OnReturnToMenuClicked);
             returnToMenuButton.onClick.AddListener(OnReturnToMenuClicked);
+        }
+
+        if (resumeButton != null)
+        {
+            resumeButton.onClick.RemoveListener(CloseSettings);
+            resumeButton.onClick.AddListener(CloseSettings);
         }
     }
 
@@ -144,6 +154,24 @@ public class SettingsMenu : MonoBehaviour
             bgmSlider.value = savedVolume;
             bgmSlider.onValueChanged.RemoveAllListeners();
             bgmSlider.onValueChanged.AddListener(SetBGMVolume);
+        }
+
+        if (bgmMuteButton != null)
+        {
+            bgmMuteButton.onClick.RemoveAllListeners();
+            bgmMuteButton.onClick.AddListener(MuteBGM);
+        }
+
+        if (bgm50Button != null)
+        {
+            bgm50Button.onClick.RemoveAllListeners();
+            bgm50Button.onClick.AddListener(SetBGM50);
+        }
+
+        if (bgm100Button != null)
+        {
+            bgm100Button.onClick.RemoveAllListeners();
+            bgm100Button.onClick.AddListener(SetBGM100);
         }
 
         UpdateBgmPercentText(savedVolume);
@@ -227,6 +255,26 @@ public class SettingsMenu : MonoBehaviour
 
         PlayerPrefs.SetFloat(BGM_PREF_KEY, volume);
         UpdateBgmPercentText(volume);
+
+        if (bgmSlider != null && !Mathf.Approximately(bgmSlider.value, volume))
+        {
+            bgmSlider.SetValueWithoutNotify(volume);
+        }
+    }
+
+    public void MuteBGM()
+    {
+        SetBGMVolume(0f);
+    }
+
+    public void SetBGM50()
+    {
+        SetBGMVolume(0.5f);
+    }
+
+    public void SetBGM100()
+    {
+        SetBGMVolume(1.0f);
     }
 
     public void SetSoundVolume(float volume, bool playPreview = true)
@@ -330,7 +378,28 @@ public class SettingsMenu : MonoBehaviour
         }
     }
 
+    private bool isGrabbingThumbnail = false;
+
     public void OpenSettings()
+    {
+        // In-game settings (has a Save button): grab the current game frame first so the
+        // save card thumbnail shows the scene the player was on, without the menu on top.
+        if (saveProgressButton != null)
+        {
+            if (isGrabbingThumbnail) return;
+            isGrabbingThumbnail = true;
+            SaveThumbnail.GrabFrameThen(() =>
+            {
+                isGrabbingThumbnail = false;
+                OpenSettingsImmediate();
+            });
+            return;
+        }
+
+        OpenSettingsImmediate();
+    }
+
+    private void OpenSettingsImmediate()
     {
         if (settingsPanel != null)
         {

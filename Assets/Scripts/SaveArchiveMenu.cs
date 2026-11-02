@@ -91,6 +91,17 @@ public class SaveArchiveMenu : MonoBehaviour
     private Coroutine notificationCoroutine;
     private Coroutine transitionCoroutine;
 
+    // Per-card delete buttons and loaded save thumbnails (created at runtime)
+    private Button[] deleteButtons = new Button[6];
+    private Texture2D[] cardThumbTextures = new Texture2D[6];
+    private Sprite[] cardThumbSprites = new Sprite[6];
+
+    // Delete confirmation dialog (created at runtime)
+    private GameObject deleteConfirmRoot;
+    private TextMeshProUGUI deleteConfirmMessage;
+    private int pendingDeleteSlot = -1;
+    public bool IsDeleteConfirmOpen => deleteConfirmRoot != null && deleteConfirmRoot.activeSelf;
+
     private readonly Color activePageColor = new Color(0.25f, 0.88f, 1f, 1f);
     private readonly Color inactivePageColor = new Color(0.6f, 0.72f, 0.88f, 0.65f);
 
@@ -126,7 +137,14 @@ public class SaveArchiveMenu : MonoBehaviour
 #endif
             if (escapePressed)
             {
-                CloseArchive();
+                if (IsDeleteConfirmOpen)
+                {
+                    HideDeleteConfirm();
+                }
+                else
+                {
+                    CloseArchive();
+                }
             }
         }
     }
@@ -151,6 +169,16 @@ public class SaveArchiveMenu : MonoBehaviour
 
         InitializeButtons();
         EnsureCanvasGroups();
+        BuildDeleteButtons();
+        BuildDeleteConfirmDialog();
+    }
+
+    private void OnDestroy()
+    {
+        for (int i = 0; i < cardThumbTextures.Length; i++)
+        {
+            ReleaseCardThumb(i);
+        }
     }
 
     private void EnsureCanvasGroups()
@@ -475,14 +503,31 @@ public class SaveArchiveMenu : MonoBehaviour
 
             if (hasSave)
             {
-                // Has save progress: Show illustration, chapter title, and timestamp
+                // Has save progress: Show illustration (captured screen or default), chapter title, and timestamp
                 if (cardImages != null && i < cardImages.Length && cardImages[i] != null)
                 {
                     cardImages[i].gameObject.SetActive(true);
-                    if (activeSprites != null && i < activeSprites.Length && activeSprites[i] != null)
+                    cardImages[i].color = Color.white;
+                    cardImages[i].preserveAspect = false;
+
+                    ReleaseCardThumb(i);
+                    Texture2D thumb = SaveThumbnail.LoadForSlot(globalSlot);
+                    if (thumb != null)
+                    {
+                        cardThumbTextures[i] = thumb;
+                        cardThumbSprites[i] = CreateCroppedSprite(thumb);
+                        cardImages[i].sprite = cardThumbSprites[i];
+                    }
+                    else if (activeSprites != null && i < activeSprites.Length && activeSprites[i] != null)
                     {
                         cardImages[i].sprite = activeSprites[i];
                     }
+                }
+
+                if (deleteButtons != null && i < deleteButtons.Length && deleteButtons[i] != null)
+                {
+                    deleteButtons[i].gameObject.SetActive(true);
+                    deleteButtons[i].transform.SetAsLastSibling();
                 }
 
                 if (cardTitleTexts != null && i < cardTitleTexts.Length && cardTitleTexts[i] != null)
@@ -504,14 +549,30 @@ public class SaveArchiveMenu : MonoBehaviour
                     string time = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_Time",
                         (activeTimes != null && i < activeTimes.Length) ? activeTimes[i] : "");
                     cardTimeTexts[i].text = time;
+
+                    // Position timestamp on bottom-left to leave bottom-right for the inside Delete button
+                    RectTransform ctimeRect = cardTimeTexts[i].GetComponent<RectTransform>();
+                    if (ctimeRect != null)
+                    {
+                        ctimeRect.anchorMin = new Vector2(0.05f, 0.01f);
+                        ctimeRect.anchorMax = new Vector2(0.68f, 0.12f);
+                        cardTimeTexts[i].alignment = TextAlignmentOptions.MidlineLeft;
+                        cardTimeTexts[i].fontSize = 17;
+                    }
                 }
             }
             else
             {
-                // NO save progress: NO image, "Empty Slot" in center, no timestamp
+                // NO save progress: NO image, "Empty Slot" in center, no timestamp, hide delete button
                 if (cardImages != null && i < cardImages.Length && cardImages[i] != null)
                 {
+                    ReleaseCardThumb(i);
                     cardImages[i].gameObject.SetActive(false);
+                }
+
+                if (deleteButtons != null && i < deleteButtons.Length && deleteButtons[i] != null)
+                {
+                    deleteButtons[i].gameObject.SetActive(false);
                 }
 
                 if (cardTitleTexts != null && i < cardTitleTexts.Length && cardTitleTexts[i] != null)
@@ -568,6 +629,9 @@ public class SaveArchiveMenu : MonoBehaviour
             string activeScene = SceneManager.GetActiveScene().name;
 
             string playerName = PlayerPrefs.GetString(OpeningSceneController.PLAYER_NAME_PREF_KEY, "Player");
+
+            // Persist the captured game screen as this slot's thumbnail
+            SaveThumbnail.WritePendingToSlot(globalSlot);
 
             PlayerPrefs.SetInt($"SaveSlot_{globalSlot}_Exists", 1);
             PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Title", saveTitle);
@@ -629,6 +693,7 @@ public class SaveArchiveMenu : MonoBehaviour
 
     public void SaveProgressToSlot(int globalSlot, string chapterTitle, string timestamp)
     {
+        SaveThumbnail.WritePendingToSlot(globalSlot);
         PlayerPrefs.SetInt($"SaveSlot_{globalSlot}_Exists", 1);
         PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Title", chapterTitle);
         PlayerPrefs.SetString($"SaveSlot_{globalSlot}_Time", timestamp);
@@ -643,8 +708,20 @@ public class SaveArchiveMenu : MonoBehaviour
         PlayerPrefs.DeleteKey($"SaveSlot_{globalSlot}_Exists");
         PlayerPrefs.DeleteKey($"SaveSlot_{globalSlot}_Title");
         PlayerPrefs.DeleteKey($"SaveSlot_{globalSlot}_Time");
-        PlayerPrefs.Save();
+        PlayerPrefs.DeleteKey($"SaveSlot_{globalSlot}_Scene");
+        PlayerPrefs.DeleteKey($"SaveSlot_{globalSlot}_LineIndex");
+        PlayerPrefs.DeleteKey($"SaveSlot_{globalSlot}_PlayerName");
 
+        SaveThumbnail.DeleteForSlot(globalSlot);
+
+        if (PlayerPrefs.GetInt(PREF_SELECTED_SLOT, -1) == globalSlot)
+        {
+            PlayerPrefs.DeleteKey(PREF_SELECTED_SLOT);
+            PlayerPrefs.DeleteKey(PREF_CHAPTER_TITLE);
+            PlayerPrefs.DeleteKey(PREF_TIMESTAMP);
+        }
+
+        PlayerPrefs.Save();
         SetPage(currentPage);
     }
 
@@ -685,6 +762,278 @@ public class SaveArchiveMenu : MonoBehaviour
         {
             float sfxVol = PlayerPrefs.GetFloat("SFX_Volume", 0.8f);
             audioSource.PlayOneShot(clip, sfxVol);
+        }
+    }
+
+    private void ReleaseCardThumb(int cardIndex)
+    {
+        if (cardIndex < 0 || cardIndex >= cardThumbTextures.Length) return;
+        if (cardThumbSprites[cardIndex] != null)
+        {
+            Destroy(cardThumbSprites[cardIndex]);
+            cardThumbSprites[cardIndex] = null;
+        }
+        if (cardThumbTextures[cardIndex] != null)
+        {
+            Destroy(cardThumbTextures[cardIndex]);
+            cardThumbTextures[cardIndex] = null;
+        }
+    }
+
+    private Sprite CreateCroppedSprite(Texture2D tex)
+    {
+        if (tex == null) return null;
+        return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    private void BuildDeleteButtons()
+    {
+        TMP_FontAsset font = pageSubtitleText != null ? pageSubtitleText.font : null;
+
+        for (int i = 0; i < cardButtons.Length; i++)
+        {
+            if (cardButtons[i] == null) continue;
+
+            Transform existing = cardButtons[i].transform.Find("DeleteButton");
+            if (existing != null)
+            {
+                Destroy(existing.gameObject);
+            }
+
+            GameObject delObj = new GameObject("DeleteButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
+            delObj.transform.SetParent(cardButtons[i].transform, false);
+
+            RectTransform delRect = delObj.GetComponent<RectTransform>();
+            delRect.anchorMin = new Vector2(1f, 0f);
+            delRect.anchorMax = new Vector2(1f, 0f);
+            delRect.pivot = new Vector2(1f, 0f);
+            delRect.anchoredPosition = new Vector2(-16f, 10f);
+            delRect.sizeDelta = new Vector2(84f, 30f);
+
+            Image delImg = delObj.GetComponent<Image>();
+            delImg.color = new Color(0.48f, 0.10f, 0.12f, 0.95f);
+
+            Outline outline = delObj.GetComponent<Outline>();
+            outline.effectColor = new Color(1f, 0.40f, 0.40f, 0.90f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            textObj.transform.SetParent(delObj.transform, false);
+
+            RectTransform textRect = textObj.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            TextMeshProUGUI tmp = textObj.GetComponent<TextMeshProUGUI>();
+            tmp.text = "Delete";
+            if (font != null) tmp.font = font;
+            tmp.fontSize = 16;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            tmp.raycastTarget = false;
+
+            Button btn = delObj.GetComponent<Button>();
+            ColorBlock cb = btn.colors;
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.3f, 1.15f, 1.15f, 1f);
+            cb.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
+            btn.colors = cb;
+
+            int slotIdx = i;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OnDeleteCardClicked(slotIdx));
+
+            deleteButtons[i] = btn;
+            delObj.SetActive(false);
+        }
+    }
+
+    private void OnDeleteCardClicked(int slotIndex)
+    {
+        PlaySound(clickSound);
+        int globalSlot = (currentPage - 1) * 6 + slotIndex;
+        if (!HasSaveData(globalSlot)) return;
+        ShowDeleteConfirm(globalSlot);
+    }
+
+    private void BuildDeleteConfirmDialog()
+    {
+        if (deleteConfirmRoot != null) return;
+
+        TMP_FontAsset titleFont = archiveTitleText != null ? archiveTitleText.font : null;
+        TMP_FontAsset bodyFont = pageSubtitleText != null ? pageSubtitleText.font : titleFont;
+
+        GameObject rootTarget = archivePanel != null ? archivePanel : gameObject;
+
+        deleteConfirmRoot = new GameObject("DeleteConfirmModal", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        deleteConfirmRoot.transform.SetParent(rootTarget.transform, false);
+        deleteConfirmRoot.transform.SetAsLastSibling();
+
+        RectTransform rootRect = deleteConfirmRoot.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+
+        Image rootImg = deleteConfirmRoot.GetComponent<Image>();
+        rootImg.color = new Color(0f, 0f, 0f, 0.75f);
+        rootImg.raycastTarget = true;
+
+        GameObject boxObj = new GameObject("DialogBox", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+        boxObj.transform.SetParent(deleteConfirmRoot.transform, false);
+
+        RectTransform boxRect = boxObj.GetComponent<RectTransform>();
+        boxRect.anchorMin = new Vector2(0.5f, 0.5f);
+        boxRect.anchorMax = new Vector2(0.5f, 0.5f);
+        boxRect.pivot = new Vector2(0.5f, 0.5f);
+        boxRect.sizeDelta = new Vector2(600f, 300f);
+
+        Image boxImg = boxObj.GetComponent<Image>();
+        boxImg.color = new Color(0.04f, 0.07f, 0.14f, 0.98f);
+
+        Outline boxOutline = boxObj.GetComponent<Outline>();
+        boxOutline.effectColor = new Color(0.25f, 0.75f, 1f, 0.85f);
+        boxOutline.effectDistance = new Vector2(2f, -2f);
+
+        GameObject titleObj = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        titleObj.transform.SetParent(boxObj.transform, false);
+        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.05f, 0.72f);
+        titleRect.anchorMax = new Vector2(0.95f, 0.95f);
+        titleRect.offsetMin = Vector2.zero;
+        titleRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
+        titleTmp.text = "\u2726  Delete Saved Memory?  \u2726";
+        if (titleFont != null) titleTmp.font = titleFont;
+        titleTmp.fontSize = 28;
+        titleTmp.fontStyle = FontStyles.Bold;
+        titleTmp.alignment = TextAlignmentOptions.Center;
+        titleTmp.color = new Color(1f, 0.45f, 0.45f, 1f);
+
+        GameObject msgObj = new GameObject("Message", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        msgObj.transform.SetParent(boxObj.transform, false);
+        RectTransform msgRect = msgObj.GetComponent<RectTransform>();
+        msgRect.anchorMin = new Vector2(0.06f, 0.32f);
+        msgRect.anchorMax = new Vector2(0.94f, 0.72f);
+        msgRect.offsetMin = Vector2.zero;
+        msgRect.offsetMax = Vector2.zero;
+
+        deleteConfirmMessage = msgObj.GetComponent<TextMeshProUGUI>();
+        deleteConfirmMessage.text = "Are you sure you want to delete this save?";
+        if (bodyFont != null) deleteConfirmMessage.font = bodyFont;
+        deleteConfirmMessage.fontSize = 20;
+        deleteConfirmMessage.alignment = TextAlignmentOptions.Center;
+        deleteConfirmMessage.color = new Color(0.85f, 0.92f, 1f, 0.95f);
+
+        GameObject cancelBtnObj = new GameObject("CancelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
+        cancelBtnObj.transform.SetParent(boxObj.transform, false);
+        RectTransform cancelRect = cancelBtnObj.GetComponent<RectTransform>();
+        cancelRect.anchorMin = new Vector2(0.12f, 0.10f);
+        cancelRect.anchorMax = new Vector2(0.45f, 0.28f);
+        cancelRect.offsetMin = Vector2.zero;
+        cancelRect.offsetMax = Vector2.zero;
+
+        Image cancelImg = cancelBtnObj.GetComponent<Image>();
+        cancelImg.color = new Color(0.12f, 0.16f, 0.24f, 1f);
+
+        Outline cancelOutline = cancelBtnObj.GetComponent<Outline>();
+        cancelOutline.effectColor = new Color(0.45f, 0.65f, 0.85f, 0.8f);
+        cancelOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        GameObject cancelTextObj = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        cancelTextObj.transform.SetParent(cancelBtnObj.transform, false);
+        RectTransform ctRect = cancelTextObj.GetComponent<RectTransform>();
+        ctRect.anchorMin = Vector2.zero;
+        ctRect.anchorMax = Vector2.one;
+        ctRect.offsetMin = Vector2.zero;
+        ctRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI cancelTmp = cancelTextObj.GetComponent<TextMeshProUGUI>();
+        cancelTmp.text = "Cancel";
+        if (bodyFont != null) cancelTmp.font = bodyFont;
+        cancelTmp.fontSize = 20;
+        cancelTmp.alignment = TextAlignmentOptions.Center;
+        cancelTmp.color = Color.white;
+
+        Button cancelBtn = cancelBtnObj.GetComponent<Button>();
+        cancelBtn.onClick.AddListener(HideDeleteConfirm);
+
+        GameObject delBtnObj = new GameObject("ConfirmDeleteButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
+        delBtnObj.transform.SetParent(boxObj.transform, false);
+        RectTransform delRect = delBtnObj.GetComponent<RectTransform>();
+        delRect.anchorMin = new Vector2(0.55f, 0.10f);
+        delRect.anchorMax = new Vector2(0.88f, 0.28f);
+        delRect.offsetMin = Vector2.zero;
+        delRect.offsetMax = Vector2.zero;
+
+        Image delImg = delBtnObj.GetComponent<Image>();
+        delImg.color = new Color(0.58f, 0.10f, 0.10f, 1f);
+
+        Outline delOutline = delBtnObj.GetComponent<Outline>();
+        delOutline.effectColor = new Color(1f, 0.35f, 0.35f, 0.85f);
+        delOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        GameObject delTextObj = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        delTextObj.transform.SetParent(delBtnObj.transform, false);
+        RectTransform dtRect = delTextObj.GetComponent<RectTransform>();
+        dtRect.anchorMin = Vector2.zero;
+        dtRect.anchorMax = Vector2.one;
+        dtRect.offsetMin = Vector2.zero;
+        dtRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI delTmp = delTextObj.GetComponent<TextMeshProUGUI>();
+        delTmp.text = "Delete";
+        if (bodyFont != null) delTmp.font = bodyFont;
+        delTmp.fontSize = 20;
+        delTmp.alignment = TextAlignmentOptions.Center;
+        delTmp.color = Color.white;
+
+        Button confirmBtn = delBtnObj.GetComponent<Button>();
+        confirmBtn.onClick.AddListener(ConfirmDelete);
+
+        deleteConfirmRoot.SetActive(false);
+    }
+
+    private void ShowDeleteConfirm(int globalSlot)
+    {
+        pendingDeleteSlot = globalSlot;
+        if (deleteConfirmMessage != null)
+        {
+            string title = PlayerPrefs.GetString($"SaveSlot_{globalSlot}_Title", $"Slot {globalSlot + 1}");
+            deleteConfirmMessage.text = $"Delete saved progress in Slot {globalSlot + 1}?\n<color=#88c0ff>{title}</color>\n\nThis box will become empty.";
+        }
+        if (deleteConfirmRoot != null)
+        {
+            deleteConfirmRoot.SetActive(true);
+            deleteConfirmRoot.transform.SetAsLastSibling();
+        }
+    }
+
+    public void HideDeleteConfirm()
+    {
+        PlaySound(clickSound);
+        pendingDeleteSlot = -1;
+        if (deleteConfirmRoot != null)
+        {
+            deleteConfirmRoot.SetActive(false);
+        }
+    }
+
+    private void ConfirmDelete()
+    {
+        if (pendingDeleteSlot >= 0)
+        {
+            int slot = pendingDeleteSlot;
+            pendingDeleteSlot = -1;
+            if (deleteConfirmRoot != null) deleteConfirmRoot.SetActive(false);
+
+            ClearSaveSlot(slot);
+            PlaySound(clickSound);
+            ShowNotification($"Deleted save in Slot {slot + 1} \u2014 Box is now empty");
         }
     }
 }

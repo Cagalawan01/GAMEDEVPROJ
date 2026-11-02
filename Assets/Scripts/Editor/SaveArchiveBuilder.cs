@@ -354,7 +354,7 @@ public static class SaveArchiveBuilder
                 cTimeObj.transform.SetParent(cardObj.transform, false);
                 RectTransform ctimeRect = cTimeObj.GetComponent<RectTransform>();
                 ctimeRect.anchorMin = new Vector2(0.04f, 0.01f);
-                ctimeRect.anchorMax = new Vector2(0.96f, 0.12f);
+                ctimeRect.anchorMax = new Vector2(0.68f, 0.12f);
                 ctimeRect.offsetMin = Vector2.zero;
                 ctimeRect.offsetMax = Vector2.zero;
 
@@ -362,7 +362,7 @@ public static class SaveArchiveBuilder
                 ctimeTmp.text = "";
                 ctimeTmp.font = menuFont;
                 ctimeTmp.fontSize = 18;
-                ctimeTmp.alignment = TextAlignmentOptions.Center;
+                ctimeTmp.alignment = TextAlignmentOptions.MidlineLeft;
                 ctimeTmp.color = new Color(0.55f, 0.72f, 0.90f, 0.85f);
                 cTimeObj.SetActive(false);
 
@@ -595,3 +595,4 @@ public static class SaveArchiveBuilder
     }
 }
 #endif
+

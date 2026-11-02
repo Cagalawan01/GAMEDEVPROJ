@@ -35,8 +35,8 @@ public static class SettingsTabBuilder
         {
             Transform panel = canvas.transform.Find("SettingsPanel");
             bool needsBuild = panel == null ||
-                              panel.Find("SoundRow") == null ||
-                              panel.Find("ResolutionRow") != null;
+                              panel.Find("TopIconBadge") == null ||
+                              panel.Find("BgmSection") == null;
 
             if (needsBuild)
             {
@@ -108,11 +108,22 @@ public static class SettingsTabBuilder
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
         panelRect.anchoredPosition = Vector2.zero;
-        panelRect.sizeDelta = new Vector2(900f, 680f);
+        panelRect.sizeDelta = new Vector2(740f, 540f);
 
-        // Style Panel Image (Deep translucent modal window)
+        // Style Panel Image (Deep gothic navy window)
         Image panelImage = panelObj.GetComponent<Image>();
-        panelImage.color = new Color(0.06f, 0.12f, 0.20f, 0.95f);
+        panelImage.color = new Color(0.04f, 0.08f, 0.16f, 0.96f);
+
+        Outline panelOutline = panelObj.GetComponent<Outline>();
+        if (panelOutline == null) panelOutline = panelObj.AddComponent<Outline>();
+        panelOutline.effectColor = new Color(0.30f, 0.72f, 0.88f, 0.75f);
+        panelOutline.effectDistance = new Vector2(2f, -2f);
+
+        CanvasGroup panelCg = panelObj.GetComponent<CanvasGroup>();
+        if (panelCg == null) panelCg = panelObj.AddComponent<CanvasGroup>();
+        panelCg.alpha = 0f;
+        panelCg.interactable = false;
+        panelCg.blocksRaycasts = false;
 
         // Add AudioSource for preview sound
         AudioSource panelAudio = panelObj.GetComponent<AudioSource>();
@@ -137,291 +148,457 @@ public static class SettingsTabBuilder
 
         DefaultControls.Resources uiResources = new DefaultControls.Resources();
 
-        // 6. Title Text
-        GameObject titleObj = new GameObject("SettingsTitle", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        titleObj.transform.SetParent(panelObj.transform, false);
-        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.5f, 1f);
-        titleRect.anchorMax = new Vector2(0.5f, 1f);
-        titleRect.pivot = new Vector2(0.5f, 1f);
-        titleRect.anchoredPosition = new Vector2(0, -35f);
-        titleRect.sizeDelta = new Vector2(600f, 85f);
+        TMP_FontAsset bodyFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+        if (bodyFont == null) bodyFont = fontAsset;
 
-        TextMeshProUGUI titleText = titleObj.GetComponent<TextMeshProUGUI>();
-        titleText.text = "SETTINGS";
-        if (fontAsset != null) titleText.font = fontAsset;
-        titleText.fontSize = 72;
-        titleText.fontStyle = FontStyles.Bold;
-        titleText.alignment = TextAlignmentOptions.Center;
-        titleText.color = new Color(0.95f, 0.95f, 1f, 1f);
-
-        // 7. BGM Volume Section Container
-        GameObject bgmRow = new GameObject("VolumeRow", typeof(RectTransform));
-        bgmRow.transform.SetParent(panelObj.transform, false);
-        RectTransform bgmRowRect = bgmRow.GetComponent<RectTransform>();
-        bgmRowRect.anchorMin = new Vector2(0.5f, 1f);
-        bgmRowRect.anchorMax = new Vector2(0.5f, 1f);
-        bgmRowRect.pivot = new Vector2(0.5f, 1f);
-        bgmRowRect.anchoredPosition = new Vector2(0, -135f);
-        bgmRowRect.sizeDelta = new Vector2(800f, 115f);
-
-        // Label: "BGM Volume"
-        GameObject bgmLabelObj = new GameObject("VolumeLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        bgmLabelObj.transform.SetParent(bgmRow.transform, false);
-        RectTransform bgmLabelRect = bgmLabelObj.GetComponent<RectTransform>();
-        bgmLabelRect.anchorMin = new Vector2(0.5f, 1f);
-        bgmLabelRect.anchorMax = new Vector2(0.5f, 1f);
-        bgmLabelRect.pivot = new Vector2(0.5f, 1f);
-        bgmLabelRect.anchoredPosition = new Vector2(0, 0);
-        bgmLabelRect.sizeDelta = new Vector2(500f, 45f);
-
-        TextMeshProUGUI bgmLabelText = bgmLabelObj.GetComponent<TextMeshProUGUI>();
-        bgmLabelText.text = "BGM Volume";
-        if (fontAsset != null) bgmLabelText.font = fontAsset;
-        bgmLabelText.fontSize = 42;
-        bgmLabelText.alignment = TextAlignmentOptions.Center;
-        bgmLabelText.color = new Color(0.85f, 0.92f, 1f, 1f);
-
-        // BGM Slider Container
-        GameObject bgmSliderObj = DefaultControls.CreateSlider(uiResources);
-        bgmSliderObj.name = "BgmSlider";
-        bgmSliderObj.transform.SetParent(bgmRow.transform, false);
-        RectTransform bgmSliderRect = bgmSliderObj.GetComponent<RectTransform>();
-        bgmSliderRect.anchorMin = new Vector2(0.5f, 0f);
-        bgmSliderRect.anchorMax = new Vector2(0.5f, 0f);
-        bgmSliderRect.pivot = new Vector2(0.5f, 0f);
-        bgmSliderRect.anchoredPosition = new Vector2(-50f, 15f);
-        bgmSliderRect.sizeDelta = new Vector2(480f, 32f);
-
-        Slider bgmSlider = bgmSliderObj.GetComponent<Slider>();
-        bgmSlider.minValue = 0f;
-        bgmSlider.maxValue = 1f;
-        bgmSlider.value = bgmSource != null ? bgmSource.volume : 0.8f;
-
-        // Custom BGM Slider styling
-        Image bgmFillImage = bgmSlider.fillRect != null ? bgmSlider.fillRect.GetComponent<Image>() : null;
-        if (bgmFillImage != null)
-        {
-            bgmFillImage.color = new Color(0.2f, 0.6f, 0.95f, 1f);
-        }
-
-        Image bgmHandleImage = bgmSlider.handleRect != null ? bgmSlider.handleRect.GetComponent<Image>() : null;
-        if (bgmHandleImage != null)
-        {
-            bgmHandleImage.color = new Color(0.95f, 0.95f, 1f, 1f);
-        }
-
-        // Percentage Text next to BGM Slider
-        GameObject bgmPercentObj = new GameObject("VolumePercentText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        bgmPercentObj.transform.SetParent(bgmRow.transform, false);
-        RectTransform bgmPercentRect = bgmPercentObj.GetComponent<RectTransform>();
-        bgmPercentRect.anchorMin = new Vector2(0.5f, 0f);
-        bgmPercentRect.anchorMax = new Vector2(0.5f, 0f);
-        bgmPercentRect.pivot = new Vector2(0f, 0.5f);
-        bgmPercentRect.anchoredPosition = new Vector2(215f, 31f);
-        bgmPercentRect.sizeDelta = new Vector2(120f, 40f);
-
-        TextMeshProUGUI bgmPercentText = bgmPercentObj.GetComponent<TextMeshProUGUI>();
-        bgmPercentText.text = Mathf.RoundToInt(bgmSlider.value * 100f) + "%";
-        if (fontAsset != null) bgmPercentText.font = fontAsset;
-        bgmPercentText.fontSize = 38;
-        bgmPercentText.alignment = TextAlignmentOptions.MidlineLeft;
-        bgmPercentText.color = new Color(0.95f, 0.95f, 1f, 1f);
-
-        // 8. Sound Volume Section Container (Replaces ResolutionRow)
-        GameObject soundRow = new GameObject("SoundRow", typeof(RectTransform));
-        soundRow.transform.SetParent(panelObj.transform, false);
-        RectTransform soundRowRect = soundRow.GetComponent<RectTransform>();
-        soundRowRect.anchorMin = new Vector2(0.5f, 1f);
-        soundRowRect.anchorMax = new Vector2(0.5f, 1f);
-        soundRowRect.pivot = new Vector2(0.5f, 1f);
-        soundRowRect.anchoredPosition = new Vector2(0, -270f);
-        soundRowRect.sizeDelta = new Vector2(800f, 210f);
-
-        // Label: "Sound Volume"
-        GameObject soundLabelObj = new GameObject("SoundLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        soundLabelObj.transform.SetParent(soundRow.transform, false);
-        RectTransform soundLabelRect = soundLabelObj.GetComponent<RectTransform>();
-        soundLabelRect.anchorMin = new Vector2(0.5f, 1f);
-        soundLabelRect.anchorMax = new Vector2(0.5f, 1f);
-        soundLabelRect.pivot = new Vector2(0.5f, 1f);
-        soundLabelRect.anchoredPosition = new Vector2(0, 0);
-        soundLabelRect.sizeDelta = new Vector2(500f, 45f);
-
-        TextMeshProUGUI soundLabelText = soundLabelObj.GetComponent<TextMeshProUGUI>();
-        soundLabelText.text = "Sound Volume";
-        if (fontAsset != null) soundLabelText.font = fontAsset;
-        soundLabelText.fontSize = 42;
-        soundLabelText.alignment = TextAlignmentOptions.Center;
-        soundLabelText.color = new Color(0.85f, 0.92f, 1f, 1f);
-
-        // Helper to create styled buttons
-        Button CreateStyledButton(Transform parent, string btnName, string label, Vector2 anchoredPos, Vector2 size, int fontSize = 34)
+        // --- Helper: Button Creator ---
+        Button CreatePillButton(Transform parent, string btnName, string label, Vector2 pos, Vector2 size, Color bgColor, Color outlineColor, int fontSize = 16, FontStyles fontStyle = FontStyles.Bold)
         {
             GameObject btnObj = DefaultControls.CreateButton(uiResources);
             btnObj.name = btnName;
             btnObj.transform.SetParent(parent, false);
-            RectTransform bRect = btnObj.GetComponent<RectTransform>();
-            bRect.anchorMin = new Vector2(0.5f, 0f);
-            bRect.anchorMax = new Vector2(0.5f, 0f);
-            bRect.pivot = new Vector2(0.5f, 0.5f);
-            bRect.anchoredPosition = anchoredPos;
-            bRect.sizeDelta = size;
 
-            Image bImg = btnObj.GetComponent<Image>();
-            bImg.color = new Color(0.14f, 0.22f, 0.35f, 0.9f);
+            RectTransform br = btnObj.GetComponent<RectTransform>();
+            br.anchorMin = new Vector2(0.5f, 0.5f);
+            br.anchorMax = new Vector2(0.5f, 0.5f);
+            br.pivot = new Vector2(0.5f, 0.5f);
+            br.anchoredPosition = pos;
+            br.sizeDelta = size;
+
+            Image img = btnObj.GetComponent<Image>();
+            img.color = bgColor;
+
+            Outline ol = btnObj.AddComponent<Outline>();
+            ol.effectColor = outlineColor;
+            ol.effectDistance = new Vector2(1.2f, -1.2f);
 
             foreach (Text legacyText in btnObj.GetComponentsInChildren<Text>(true))
             {
                 if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
             }
 
-            GameObject textObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObj.transform.SetParent(btnObj.transform, false);
-            RectTransform tRect = textObj.GetComponent<RectTransform>();
-            tRect.anchorMin = Vector2.zero;
-            tRect.anchorMax = Vector2.one;
-            tRect.sizeDelta = Vector2.zero;
-            tRect.anchoredPosition = Vector2.zero;
+            RectTransform tr = textObj.GetComponent<RectTransform>();
+            tr.anchorMin = Vector2.zero;
+            tr.anchorMax = Vector2.one;
+            tr.offsetMin = Vector2.zero;
+            tr.offsetMax = Vector2.zero;
 
             TextMeshProUGUI tmp = textObj.GetComponent<TextMeshProUGUI>();
             tmp.text = label;
-            if (fontAsset != null) tmp.font = fontAsset;
+            if (bodyFont != null) tmp.font = bodyFont;
             tmp.fontSize = fontSize;
+            tmp.fontStyle = fontStyle;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
+            tmp.raycastTarget = false;
 
             Button btn = btnObj.GetComponent<Button>();
+            ColorBlock cb = btn.colors;
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.25f, 1.35f, 1.55f, 1f);
+            cb.pressedColor = new Color(0.7f, 0.85f, 1f, 1f);
+            btn.colors = cb;
+
             AudioSource btnAudio = btnObj.AddComponent<AudioSource>();
             btnAudio.playOnAwake = false;
             ButtonFunction bFunc = btnObj.AddComponent<ButtonFunction>();
             bFunc.mySound = btnAudio;
             bFunc.hoverSound = hoverClip;
             bFunc.clickSound = clickClip;
-
             UnityEventTools.AddPersistentListener(btn.onClick, bFunc.ClickSound);
 
             return btn;
         }
 
-        // Minus Button for Sound Volume
-        Button soundMinusBtn = CreateStyledButton(soundRow.transform, "SoundMinusButton", "—", new Vector2(-235f, 92f), new Vector2(48f, 40f), 30);
+        // --- Helper: Horizontal Slider Creator ---
+        void CreateStyledSlider(Transform parent, string sliderName, Vector2 pos, float width, float initVal, Color fillColor, out Slider sliderComponent)
+        {
+            GameObject sliderObj = DefaultControls.CreateSlider(uiResources);
+            sliderObj.name = sliderName;
+            sliderObj.transform.SetParent(parent, false);
 
-        // Sound Slider Container
-        GameObject soundSliderObj = DefaultControls.CreateSlider(uiResources);
-        soundSliderObj.name = "SoundSlider";
-        soundSliderObj.transform.SetParent(soundRow.transform, false);
-        RectTransform soundSliderRect = soundSliderObj.GetComponent<RectTransform>();
-        soundSliderRect.anchorMin = new Vector2(0.5f, 0f);
-        soundSliderRect.anchorMax = new Vector2(0.5f, 0f);
-        soundSliderRect.pivot = new Vector2(0.5f, 0.5f);
-        soundSliderRect.anchoredPosition = new Vector2(-20f, 92f);
-        soundSliderRect.sizeDelta = new Vector2(350f, 32f);
+            RectTransform sr = sliderObj.GetComponent<RectTransform>();
+            sr.anchorMin = new Vector2(0.5f, 1f);
+            sr.anchorMax = new Vector2(0.5f, 1f);
+            sr.pivot = new Vector2(0.5f, 1f);
+            sr.anchoredPosition = pos;
+            sr.sizeDelta = new Vector2(width, 24f);
 
-        Slider soundSlider = soundSliderObj.GetComponent<Slider>();
-        soundSlider.minValue = 0f;
-        soundSlider.maxValue = 1f;
+            Slider slider = sliderObj.GetComponent<Slider>();
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = initVal;
+
+            Transform bgTf = sliderObj.transform.Find("Background");
+            if (bgTf != null)
+            {
+                Image bgImg = bgTf.GetComponent<Image>();
+                if (bgImg != null) bgImg.color = new Color(0.10f, 0.18f, 0.28f, 0.95f);
+                RectTransform bgRect = bgTf.GetComponent<RectTransform>();
+                bgRect.anchorMin = new Vector2(0f, 0.35f);
+                bgRect.anchorMax = new Vector2(1f, 0.65f);
+                bgRect.offsetMin = Vector2.zero;
+                bgRect.offsetMax = Vector2.zero;
+            }
+
+            if (slider.fillRect != null)
+            {
+                Image fillImg = slider.fillRect.GetComponent<Image>();
+                if (fillImg != null) fillImg.color = fillColor;
+                RectTransform fillRect = slider.fillRect.GetComponent<RectTransform>();
+                fillRect.anchorMin = new Vector2(0f, 0.35f);
+                fillRect.anchorMax = new Vector2(1f, 0.65f);
+                fillRect.offsetMin = Vector2.zero;
+                fillRect.offsetMax = Vector2.zero;
+            }
+
+            if (slider.handleRect != null)
+            {
+                Image handleImg = slider.handleRect.GetComponent<Image>();
+                if (handleImg != null) handleImg.color = new Color(0.95f, 0.98f, 1f, 1f);
+                slider.handleRect.sizeDelta = new Vector2(24f, 24f);
+            }
+
+            sliderComponent = slider;
+        }
+
+        // --- 1. Top Icon Badge ---
+        GameObject badgeObj = new GameObject("TopIconBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+        badgeObj.transform.SetParent(panelObj.transform, false);
+        RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
+        badgeRect.anchorMin = new Vector2(0.5f, 1f);
+        badgeRect.anchorMax = new Vector2(0.5f, 1f);
+        badgeRect.pivot = new Vector2(0.5f, 1f);
+        badgeRect.anchoredPosition = new Vector2(0, -20f);
+        badgeRect.sizeDelta = new Vector2(40f, 40f);
+
+        Image badgeImg = badgeObj.GetComponent<Image>();
+        badgeImg.color = new Color(0.09f, 0.18f, 0.28f, 0.90f);
+
+        Outline badgeOutline = badgeObj.GetComponent<Outline>();
+        badgeOutline.effectColor = new Color(0.35f, 0.75f, 0.92f, 0.65f);
+        badgeOutline.effectDistance = new Vector2(1.2f, -1.2f);
+
+        GameObject badgeTextObj = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        badgeTextObj.transform.SetParent(badgeObj.transform, false);
+        RectTransform btRect = badgeTextObj.GetComponent<RectTransform>();
+        btRect.anchorMin = Vector2.zero;
+        btRect.anchorMax = Vector2.one;
+        btRect.offsetMin = Vector2.zero;
+        btRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI btTmp = badgeTextObj.GetComponent<TextMeshProUGUI>();
+        btTmp.text = "\u2699";
+        btTmp.fontSize = 20;
+        btTmp.alignment = TextAlignmentOptions.Center;
+        btTmp.color = new Color(0.40f, 0.88f, 1f, 1f);
+
+        // --- 2. Title Text ("Settings") ---
+        GameObject titleObj = new GameObject("SettingsTitle", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        titleObj.transform.SetParent(panelObj.transform, false);
+        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.5f, 1f);
+        titleRect.anchorMax = new Vector2(0.5f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0, -68f);
+        titleRect.sizeDelta = new Vector2(550f, 44f);
+
+        TextMeshProUGUI titleText = titleObj.GetComponent<TextMeshProUGUI>();
+        titleText.text = "Settings";
+        if (fontAsset != null) titleText.font = fontAsset;
+        titleText.fontSize = 44;
+        titleText.fontStyle = FontStyles.Bold;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.color = new Color(0.95f, 0.98f, 1f, 1f);
+
+        // --- 3. Subtitle Text ---
+        GameObject subObj = new GameObject("SettingsSubtitle", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        subObj.transform.SetParent(panelObj.transform, false);
+        RectTransform subRect = subObj.GetComponent<RectTransform>();
+        subRect.anchorMin = new Vector2(0.5f, 1f);
+        subRect.anchorMax = new Vector2(0.5f, 1f);
+        subRect.pivot = new Vector2(0.5f, 1f);
+        subRect.anchoredPosition = new Vector2(0, -112f);
+        subRect.sizeDelta = new Vector2(620f, 24f);
+
+        TextMeshProUGUI subText = subObj.GetComponent<TextMeshProUGUI>();
+        subText.text = "A moment of quiet. Make yourself comfortable.";
+        if (bodyFont != null) subText.font = bodyFont;
+        subText.fontSize = 16;
+        subText.alignment = TextAlignmentOptions.Center;
+        subText.color = new Color(0.62f, 0.76f, 0.90f, 0.85f);
+
+        // --- 4. Section Divider ("— AUDIO —") ---
+        GameObject divObj = new GameObject("AudioDivider", typeof(RectTransform));
+        divObj.transform.SetParent(panelObj.transform, false);
+        RectTransform divRect = divObj.GetComponent<RectTransform>();
+        divRect.anchorMin = new Vector2(0.5f, 1f);
+        divRect.anchorMax = new Vector2(0.5f, 1f);
+        divRect.pivot = new Vector2(0.5f, 1f);
+        divRect.anchoredPosition = new Vector2(0, -140f);
+        divRect.sizeDelta = new Vector2(620f, 20f);
+
+        Color divLineColor = new Color(0.25f, 0.42f, 0.60f, 0.5f);
+
+        GameObject lineL = new GameObject("LineLeft", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        lineL.transform.SetParent(divObj.transform, false);
+        RectTransform llRect = lineL.GetComponent<RectTransform>();
+        llRect.anchorMin = new Vector2(0.5f, 0.5f);
+        llRect.anchorMax = new Vector2(0.5f, 0.5f);
+        llRect.pivot = new Vector2(0.5f, 0.5f);
+        llRect.anchoredPosition = new Vector2(-175f, 0);
+        llRect.sizeDelta = new Vector2(230f, 1.5f);
+        lineL.GetComponent<Image>().color = divLineColor;
+
+        GameObject lineR = new GameObject("LineRight", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        lineR.transform.SetParent(divObj.transform, false);
+        RectTransform lrRect = lineR.GetComponent<RectTransform>();
+        lrRect.anchorMin = new Vector2(0.5f, 0.5f);
+        lrRect.anchorMax = new Vector2(0.5f, 0.5f);
+        lrRect.pivot = new Vector2(0.5f, 0.5f);
+        lrRect.anchoredPosition = new Vector2(175f, 0);
+        lrRect.sizeDelta = new Vector2(230f, 1.5f);
+        lineR.GetComponent<Image>().color = divLineColor;
+
+        GameObject divTextObj = new GameObject("AudioText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        divTextObj.transform.SetParent(divObj.transform, false);
+        RectTransform dtRect = divTextObj.GetComponent<RectTransform>();
+        dtRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dtRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dtRect.pivot = new Vector2(0.5f, 0.5f);
+        dtRect.anchoredPosition = Vector2.zero;
+        dtRect.sizeDelta = new Vector2(80f, 20f);
+
+        TextMeshProUGUI dtTmp = divTextObj.GetComponent<TextMeshProUGUI>();
+        dtTmp.text = "AUDIO";
+        if (bodyFont != null) dtTmp.font = bodyFont;
+        dtTmp.fontSize = 14;
+        dtTmp.fontStyle = FontStyles.Bold;
+        dtTmp.alignment = TextAlignmentOptions.Center;
+        dtTmp.color = new Color(0.50f, 0.72f, 0.88f, 0.8f);
+
+        // --- 5. BGM Volume Section ---
+        GameObject bgmSection = new GameObject("BgmSection", typeof(RectTransform));
+        bgmSection.transform.SetParent(panelObj.transform, false);
+        RectTransform bgmSecRect = bgmSection.GetComponent<RectTransform>();
+        bgmSecRect.anchorMin = new Vector2(0.5f, 1f);
+        bgmSecRect.anchorMax = new Vector2(0.5f, 1f);
+        bgmSecRect.pivot = new Vector2(0.5f, 1f);
+        bgmSecRect.anchoredPosition = new Vector2(0, -170f);
+        bgmSecRect.sizeDelta = new Vector2(620f, 108f);
+
+        // Header: Label & Percent Badge
+        GameObject bgmHeader = new GameObject("HeaderRow", typeof(RectTransform));
+        bgmHeader.transform.SetParent(bgmSection.transform, false);
+        RectTransform bhRect = bgmHeader.GetComponent<RectTransform>();
+        bhRect.anchorMin = new Vector2(0.5f, 1f);
+        bhRect.anchorMax = new Vector2(0.5f, 1f);
+        bhRect.pivot = new Vector2(0.5f, 1f);
+        bhRect.anchoredPosition = Vector2.zero;
+        bhRect.sizeDelta = new Vector2(620f, 30f);
+
+        GameObject bgmLabelObj = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        bgmLabelObj.transform.SetParent(bgmHeader.transform, false);
+        RectTransform blRect = bgmLabelObj.GetComponent<RectTransform>();
+        blRect.anchorMin = new Vector2(0f, 0.5f);
+        blRect.anchorMax = new Vector2(0f, 0.5f);
+        blRect.pivot = new Vector2(0f, 0.5f);
+        blRect.anchoredPosition = Vector2.zero;
+        blRect.sizeDelta = new Vector2(400f, 30f);
+
+        TextMeshProUGUI bgmLabelTmp = bgmLabelObj.GetComponent<TextMeshProUGUI>();
+        bgmLabelTmp.text = "\u266A  BGM Volume";
+        if (bodyFont != null) bgmLabelTmp.font = bodyFont;
+        bgmLabelTmp.fontSize = 20;
+        bgmLabelTmp.fontStyle = FontStyles.Bold;
+        bgmLabelTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        bgmLabelTmp.color = new Color(0.85f, 0.93f, 1f, 1f);
+
+        // Right Badge Box for BGM
+        GameObject bgmBadge = new GameObject("PercentBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+        bgmBadge.transform.SetParent(bgmHeader.transform, false);
+        RectTransform bbRect = bgmBadge.GetComponent<RectTransform>();
+        bbRect.anchorMin = new Vector2(1f, 0.5f);
+        bbRect.anchorMax = new Vector2(1f, 0.5f);
+        bbRect.pivot = new Vector2(1f, 0.5f);
+        bbRect.anchoredPosition = Vector2.zero;
+        bbRect.sizeDelta = new Vector2(74f, 28f);
+
+        Image bbImg = bgmBadge.GetComponent<Image>();
+        bbImg.color = new Color(0.08f, 0.16f, 0.28f, 0.9f);
+        Outline bbOutline = bgmBadge.GetComponent<Outline>();
+        bbOutline.effectColor = new Color(0.30f, 0.65f, 0.85f, 0.55f);
+        bbOutline.effectDistance = new Vector2(1.2f, -1.2f);
+
+        GameObject bgmPctTextObj = new GameObject("VolumePercentText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        bgmPctTextObj.transform.SetParent(bgmBadge.transform, false);
+        RectTransform bptRect = bgmPctTextObj.GetComponent<RectTransform>();
+        bptRect.anchorMin = Vector2.zero;
+        bptRect.anchorMax = Vector2.one;
+        bptRect.offsetMin = Vector2.zero;
+        bptRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI bgmPercentText = bgmPctTextObj.GetComponent<TextMeshProUGUI>();
+        bgmPercentText.text = Mathf.RoundToInt((bgmSource != null ? bgmSource.volume : 0.8f) * 100f) + "%";
+        if (bodyFont != null) bgmPercentText.font = bodyFont;
+        bgmPercentText.fontSize = 17;
+        bgmPercentText.fontStyle = FontStyles.Bold;
+        bgmPercentText.alignment = TextAlignmentOptions.Center;
+        bgmPercentText.color = new Color(0.92f, 0.97f, 1f, 1f);
+
+        // BGM Slider
+        Slider bgmSlider;
+        CreateStyledSlider(bgmSection.transform, "BgmSlider", new Vector2(0, -36f), 620f, bgmSource != null ? bgmSource.volume : 0.8f, new Color(0.22f, 0.75f, 0.92f, 1f), out bgmSlider);
+
+        // BGM Preset Buttons
+        GameObject bgmPresets = new GameObject("PresetRow", typeof(RectTransform));
+        bgmPresets.transform.SetParent(bgmSection.transform, false);
+        RectTransform bpRect = bgmPresets.GetComponent<RectTransform>();
+        bpRect.anchorMin = new Vector2(0.5f, 0f);
+        bpRect.anchorMax = new Vector2(0.5f, 0f);
+        bpRect.pivot = new Vector2(0.5f, 0f);
+        bpRect.anchoredPosition = Vector2.zero;
+        bpRect.sizeDelta = new Vector2(620f, 32f);
+
+        Color presetBg = new Color(0.08f, 0.18f, 0.30f, 0.85f);
+        Color presetOutline = new Color(0.28f, 0.60f, 0.80f, 0.5f);
+        Button bgmMuteBtn = CreatePillButton(bgmPresets.transform, "BgmMuteButton", "Mute", new Vector2(-210f, 0), new Vector2(130f, 32f), presetBg, presetOutline);
+        Button bgm50Btn = CreatePillButton(bgmPresets.transform, "Bgm50Button", "50%", new Vector2(0f, 0), new Vector2(130f, 32f), presetBg, presetOutline);
+        Button bgm100Btn = CreatePillButton(bgmPresets.transform, "Bgm100Button", "100%", new Vector2(210f, 0), new Vector2(130f, 32f), presetBg, presetOutline);
+
+        // --- 6. Sound Volume Section ---
+        GameObject soundSection = new GameObject("SoundSection", typeof(RectTransform));
+        soundSection.transform.SetParent(panelObj.transform, false);
+        RectTransform soundSecRect = soundSection.GetComponent<RectTransform>();
+        soundSecRect.anchorMin = new Vector2(0.5f, 1f);
+        soundSecRect.anchorMax = new Vector2(0.5f, 1f);
+        soundSecRect.pivot = new Vector2(0.5f, 1f);
+        soundSecRect.anchoredPosition = new Vector2(0, -290f);
+        soundSecRect.sizeDelta = new Vector2(620f, 108f);
+
+        GameObject soundHeader = new GameObject("HeaderRow", typeof(RectTransform));
+        soundHeader.transform.SetParent(soundSection.transform, false);
+        RectTransform shRect = soundHeader.GetComponent<RectTransform>();
+        shRect.anchorMin = new Vector2(0.5f, 1f);
+        shRect.anchorMax = new Vector2(0.5f, 1f);
+        shRect.pivot = new Vector2(0.5f, 1f);
+        shRect.anchoredPosition = Vector2.zero;
+        shRect.sizeDelta = new Vector2(620f, 30f);
+
+        GameObject soundLabelObj = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        soundLabelObj.transform.SetParent(soundHeader.transform, false);
+        RectTransform slRect = soundLabelObj.GetComponent<RectTransform>();
+        slRect.anchorMin = new Vector2(0f, 0.5f);
+        slRect.anchorMax = new Vector2(0f, 0.5f);
+        slRect.pivot = new Vector2(0f, 0.5f);
+        slRect.anchoredPosition = Vector2.zero;
+        slRect.sizeDelta = new Vector2(400f, 30f);
+
+        TextMeshProUGUI soundLabelTmp = soundLabelObj.GetComponent<TextMeshProUGUI>();
+        soundLabelTmp.text = "\uD83D\uDD0A  Sound Volume";
+        if (bodyFont != null) soundLabelTmp.font = bodyFont;
+        soundLabelTmp.fontSize = 20;
+        soundLabelTmp.fontStyle = FontStyles.Bold;
+        soundLabelTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        soundLabelTmp.color = new Color(0.85f, 0.93f, 1f, 1f);
+
+        // Right Badge Box for Sound
+        GameObject soundBadge = new GameObject("PercentBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+        soundBadge.transform.SetParent(soundHeader.transform, false);
+        RectTransform sbRect = soundBadge.GetComponent<RectTransform>();
+        sbRect.anchorMin = new Vector2(1f, 0.5f);
+        sbRect.anchorMax = new Vector2(1f, 0.5f);
+        sbRect.pivot = new Vector2(1f, 0.5f);
+        sbRect.anchoredPosition = Vector2.zero;
+        sbRect.sizeDelta = new Vector2(74f, 28f);
+
+        Image sbImg = soundBadge.GetComponent<Image>();
+        sbImg.color = new Color(0.08f, 0.16f, 0.28f, 0.9f);
+        Outline sbOutline = soundBadge.GetComponent<Outline>();
+        sbOutline.effectColor = new Color(0.30f, 0.65f, 0.85f, 0.55f);
+        sbOutline.effectDistance = new Vector2(1.2f, -1.2f);
+
+        GameObject soundPctTextObj = new GameObject("SoundPercentText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        soundPctTextObj.transform.SetParent(soundBadge.transform, false);
+        RectTransform sptRect = soundPctTextObj.GetComponent<RectTransform>();
+        sptRect.anchorMin = Vector2.zero;
+        sptRect.anchorMax = Vector2.one;
+        sptRect.offsetMin = Vector2.zero;
+        sptRect.offsetMax = Vector2.zero;
+
         float savedSoundVol = PlayerPrefs.GetFloat("SFX_Volume", 0.8f);
-        soundSlider.value = savedSoundVol;
-
-        // Custom Sound Slider styling
-        Image soundFillImage = soundSlider.fillRect != null ? soundSlider.fillRect.GetComponent<Image>() : null;
-        if (soundFillImage != null)
-        {
-            soundFillImage.color = new Color(0.25f, 0.72f, 0.95f, 1f);
-        }
-
-        Image soundHandleImage = soundSlider.handleRect != null ? soundSlider.handleRect.GetComponent<Image>() : null;
-        if (soundHandleImage != null)
-        {
-            soundHandleImage.color = new Color(0.95f, 0.95f, 1f, 1f);
-        }
-
-        // Plus Button for Sound Volume
-        Button soundPlusBtn = CreateStyledButton(soundRow.transform, "SoundPlusButton", "+", new Vector2(195f, 92f), new Vector2(48f, 40f), 34);
-
-        // Percentage Text next to Sound Slider
-        GameObject soundPercentObj = new GameObject("SoundPercentText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        soundPercentObj.transform.SetParent(soundRow.transform, false);
-        RectTransform soundPercentRect = soundPercentObj.GetComponent<RectTransform>();
-        soundPercentRect.anchorMin = new Vector2(0.5f, 0f);
-        soundPercentRect.anchorMax = new Vector2(0.5f, 0f);
-        soundPercentRect.pivot = new Vector2(0f, 0.5f);
-        soundPercentRect.anchoredPosition = new Vector2(235f, 92f);
-        soundPercentRect.sizeDelta = new Vector2(110f, 40f);
-
-        TextMeshProUGUI soundPercentText = soundPercentObj.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI soundPercentText = soundPctTextObj.GetComponent<TextMeshProUGUI>();
         soundPercentText.text = Mathf.RoundToInt(savedSoundVol * 100f) + "%";
-        if (fontAsset != null) soundPercentText.font = fontAsset;
-        soundPercentText.fontSize = 38;
-        soundPercentText.alignment = TextAlignmentOptions.MidlineLeft;
-        soundPercentText.color = new Color(0.95f, 0.95f, 1f, 1f);
+        if (bodyFont != null) soundPercentText.font = bodyFont;
+        soundPercentText.fontSize = 17;
+        soundPercentText.fontStyle = FontStyles.Bold;
+        soundPercentText.alignment = TextAlignmentOptions.Center;
+        soundPercentText.color = new Color(0.92f, 0.97f, 1f, 1f);
 
-        // Preset Buttons Row
-        Button soundMuteBtn = CreateStyledButton(soundRow.transform, "SoundMuteButton", "Mute", new Vector2(-160f, 30f), new Vector2(130f, 50f), 34);
-        Button sound50Btn = CreateStyledButton(soundRow.transform, "Sound50Button", "50%", new Vector2(0f, 30f), new Vector2(130f, 50f), 34);
-        Button sound100Btn = CreateStyledButton(soundRow.transform, "Sound100Button", "100%", new Vector2(160f, 30f), new Vector2(130f, 50f), 34);
+        // Sound Slider
+        Slider soundSlider;
+        CreateStyledSlider(soundSection.transform, "SoundSlider", new Vector2(0, -36f), 620f, savedSoundVol, new Color(0.25f, 0.80f, 0.95f, 1f), out soundSlider);
 
-        // 9. Back / Close Button
-        GameObject backBtnObj = DefaultControls.CreateButton(uiResources);
-        backBtnObj.name = "BackButton";
-        backBtnObj.transform.SetParent(panelObj.transform, false);
-        RectTransform backBtnRect = backBtnObj.GetComponent<RectTransform>();
-        backBtnRect.anchorMin = new Vector2(0.5f, 0f);
-        backBtnRect.anchorMax = new Vector2(0.5f, 0f);
-        backBtnRect.pivot = new Vector2(0.5f, 0f);
-        backBtnRect.anchoredPosition = new Vector2(0, 35f);
-        backBtnRect.sizeDelta = new Vector2(250f, 65f);
+        // Sound Preset Buttons
+        GameObject soundPresets = new GameObject("PresetRow", typeof(RectTransform));
+        soundPresets.transform.SetParent(soundSection.transform, false);
+        RectTransform spRect = soundPresets.GetComponent<RectTransform>();
+        spRect.anchorMin = new Vector2(0.5f, 0f);
+        spRect.anchorMax = new Vector2(0.5f, 0f);
+        spRect.pivot = new Vector2(0.5f, 0f);
+        spRect.anchoredPosition = Vector2.zero;
+        spRect.sizeDelta = new Vector2(620f, 32f);
 
-        Image backBtnImg = backBtnObj.GetComponent<Image>();
-        backBtnImg.color = new Color(0.18f, 0.32f, 0.52f, 0.9f);
+        Button soundMuteBtn = CreatePillButton(soundPresets.transform, "SoundMuteButton", "Mute", new Vector2(-210f, 0), new Vector2(130f, 32f), presetBg, presetOutline);
+        Button sound50Btn = CreatePillButton(soundPresets.transform, "Sound50Button", "50%", new Vector2(0f, 0), new Vector2(130f, 32f), presetBg, presetOutline);
+        Button sound100Btn = CreatePillButton(soundPresets.transform, "Sound100Button", "100%", new Vector2(210f, 0), new Vector2(130f, 32f), presetBg, presetOutline);
 
-        foreach (Text legacyText in backBtnObj.GetComponentsInChildren<Text>(true))
-        {
-            if (legacyText != null) Object.DestroyImmediate(legacyText.gameObject);
-        }
+        // --- 7. Divider Line ---
+        GameObject bottomDiv = new GameObject("BottomDivider", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        bottomDiv.transform.SetParent(panelObj.transform, false);
+        RectTransform bdRect = bottomDiv.GetComponent<RectTransform>();
+        bdRect.anchorMin = new Vector2(0.5f, 1f);
+        bdRect.anchorMax = new Vector2(0.5f, 1f);
+        bdRect.pivot = new Vector2(0.5f, 1f);
+        bdRect.anchoredPosition = new Vector2(0, -410f);
+        bdRect.sizeDelta = new Vector2(620f, 1.5f);
+        bottomDiv.GetComponent<Image>().color = divLineColor;
 
-        GameObject backTextObj = new GameObject("Text (TMP)", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        backTextObj.transform.SetParent(backBtnObj.transform, false);
-        RectTransform backTextRect = backTextObj.GetComponent<RectTransform>();
-        backTextRect.anchorMin = Vector2.zero;
-        backTextRect.anchorMax = Vector2.one;
-        backTextRect.sizeDelta = Vector2.zero;
-        backTextRect.anchoredPosition = Vector2.zero;
+        // --- 8. Primary Hero Back Button ---
+        Color heroBg = new Color(0.14f, 0.42f, 0.56f, 0.95f);
+        Color heroOutline = new Color(0.38f, 0.85f, 1f, 0.85f);
+        Button backBtn = CreatePillButton(panelObj.transform, "BackButton", "\u25C1  Back", new Vector2(0, -446f), new Vector2(620f, 46f), heroBg, heroOutline, 22);
+        RectTransform backRect = backBtn.GetComponent<RectTransform>();
+        backRect.anchorMin = new Vector2(0.5f, 1f);
+        backRect.anchorMax = new Vector2(0.5f, 1f);
+        backRect.pivot = new Vector2(0.5f, 1f);
+        backRect.anchoredPosition = new Vector2(0, -446f);
 
-        TextMeshProUGUI backText = backTextObj.GetComponent<TextMeshProUGUI>();
-        backText.text = "Back";
-        if (fontAsset != null) backText.font = fontAsset;
-        backText.fontSize = 42;
-        backText.alignment = TextAlignmentOptions.Center;
-        backText.color = Color.white;
+        // --- 9. Wire Listeners ---
+        UnityEventTools.AddPersistentListener(bgmMuteBtn.onClick, settingsMenu.MuteBGM);
+        UnityEventTools.AddPersistentListener(bgm50Btn.onClick, settingsMenu.SetBGM50);
+        UnityEventTools.AddPersistentListener(bgm100Btn.onClick, settingsMenu.SetBGM100);
 
-        // Sound audio source and ButtonFunction for Back Button
-        Button backBtn = backBtnObj.GetComponent<Button>();
-        AudioSource backBtnAudio = backBtnObj.AddComponent<AudioSource>();
-        backBtnAudio.playOnAwake = false;
-        ButtonFunction backBtnFunc = backBtnObj.AddComponent<ButtonFunction>();
-        backBtnFunc.mySound = backBtnAudio;
-        backBtnFunc.hoverSound = hoverClip;
-        backBtnFunc.clickSound = clickClip;
+        UnityEventTools.AddPersistentListener(soundMuteBtn.onClick, settingsMenu.MuteSound);
+        UnityEventTools.AddPersistentListener(sound50Btn.onClick, settingsMenu.SetSound50);
+        UnityEventTools.AddPersistentListener(sound100Btn.onClick, settingsMenu.SetSound100);
 
-        // Wire Back Button onClick
-        UnityEventTools.RemovePersistentListener(backBtn.onClick, backBtnFunc.ClickSound);
-        UnityEventTools.AddPersistentListener(backBtn.onClick, backBtnFunc.ClickSound);
-        UnityEventTools.RemovePersistentListener(backBtn.onClick, settingsMenu.CloseSettings);
         UnityEventTools.AddPersistentListener(backBtn.onClick, settingsMenu.CloseSettings);
 
-        // 10. Wire SettingsMenu references via SerializedObject
+        // --- 10. Wire SerializedProperties on SettingsMenu ---
         SerializedObject so = new SerializedObject(settingsMenu);
         so.FindProperty("bgmAudioSource").objectReferenceValue = bgmSource;
         so.FindProperty("bgmSlider").objectReferenceValue = bgmSlider;
         so.FindProperty("volumePercentText").objectReferenceValue = bgmPercentText;
+        so.FindProperty("bgmMuteButton").objectReferenceValue = bgmMuteBtn;
+        so.FindProperty("bgm50Button").objectReferenceValue = bgm50Btn;
+        so.FindProperty("bgm100Button").objectReferenceValue = bgm100Btn;
 
         so.FindProperty("soundAudioSource").objectReferenceValue = panelAudio;
         so.FindProperty("soundSlider").objectReferenceValue = soundSlider;
         so.FindProperty("soundPercentText").objectReferenceValue = soundPercentText;
-        so.FindProperty("soundMinusButton").objectReferenceValue = soundMinusBtn;
-        so.FindProperty("soundPlusButton").objectReferenceValue = soundPlusBtn;
         so.FindProperty("soundMuteButton").objectReferenceValue = soundMuteBtn;
         so.FindProperty("sound50Button").objectReferenceValue = sound50Btn;
         so.FindProperty("sound100Button").objectReferenceValue = sound100Btn;
@@ -429,20 +606,8 @@ public static class SettingsTabBuilder
 
         so.FindProperty("settingsPanel").objectReferenceValue = panelObj;
         so.FindProperty("mainMenuPanel").objectReferenceValue = mainMenu;
+        so.FindProperty("settingsCanvasGroup").objectReferenceValue = panelCg;
         so.ApplyModifiedProperties();
-
-        // Wire buttons onClick to SettingsMenu methods
-        UnityEventTools.RemovePersistentListener(soundMuteBtn.onClick, settingsMenu.MuteSound);
-        UnityEventTools.AddPersistentListener(soundMuteBtn.onClick, settingsMenu.MuteSound);
-
-        UnityEventTools.RemovePersistentListener(sound50Btn.onClick, settingsMenu.SetSound50);
-        UnityEventTools.AddPersistentListener(sound50Btn.onClick, settingsMenu.SetSound50);
-
-        UnityEventTools.RemovePersistentListener(sound100Btn.onClick, settingsMenu.SetSound100);
-        UnityEventTools.AddPersistentListener(sound100Btn.onClick, settingsMenu.SetSound100);
-
-        UnityEventTools.AddFloatPersistentListener(soundMinusBtn.onClick, settingsMenu.ChangeSoundVolumeBy, -0.1f);
-        UnityEventTools.AddFloatPersistentListener(soundPlusBtn.onClick, settingsMenu.ChangeSoundVolumeBy, 0.1f);
 
         // Wire settingsbutton onClick -> SettingsMenu.OpenSettings
         if (settingsBtnTf != null)
